@@ -193,10 +193,12 @@ place_field(int * curpoi, int width, int * pospoi)
     (* curpoi) += width;
   }
 }
-
+extern void win_toggle_empty(bool, bool);
 static void
 win_toggle_search(bool show, bool focus)
 {
+  win_toggle_empty(show, focus);
+  return;
   RECT cr;
   GetClientRect(wnd, &cr);
   int width = cr.right - cr.left;
