@@ -375,7 +375,7 @@ win_set_timer(void (*cb)(void), uint ticks)
 
 #define dont_debug_tabbar
 
-static struct tabinfo {
+struct tabinfo {
   unsigned long tag;
   HWND wnd;
   wchar * title;
@@ -457,7 +457,7 @@ sort_tabinfo()
   ///TODO: Maintain a local list of them.
   To be used for tab bar display.
  */
-static void
+void
 refresh_tab_titles(bool trace)
 {
   BOOL CALLBACK wnd_enum_tabs(HWND curr_wnd, LPARAM lp)
@@ -484,7 +484,7 @@ refresh_tab_titles(bool trace)
 #ifdef debug_tabbar
       printf("[%8p] get tab %8p: <%ls>\n", wnd, curr_wnd, title);
 #endif
-
+      printf("[%8p] get tab %8p: <%ls>\n", wnd, curr_wnd, title);
       static bool sort_tabs_by_time = true;
 
       if (sort_tabs_by_time) {
@@ -496,6 +496,8 @@ refresh_tab_titles(bool trace)
         if (GetProcessTimes(ph, &cr_time, &dummy, &dummy, &dummy)) {
           unsigned long long crtime = ((unsigned long long)cr_time.dwHighDateTime << 32) | cr_time.dwLowDateTime;
           add_tabinfo(crtime, curr_wnd, title);
+	  printf("added [%8p] get tab %8p: <%ls>\n", wnd, curr_wnd, title);
+
           if (trace) {
 #ifdef debug_tabbar
             SYSTEMTIME start_time;

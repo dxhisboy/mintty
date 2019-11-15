@@ -4,7 +4,7 @@
 
 #include "winpriv.h"
 #include "winsearch.h"
-
+#include "wintab.h"
 #include "charset.h"
 #include "child.h"
 
@@ -893,7 +893,7 @@ translate_pos(int x, int y)
 {
   return (pos){
     .x = floorf((x - PADDING) / (float)cell_width),
-    .y = floorf((y - PADDING) / (float)cell_height),
+    .y = floorf((y - PADDING - TABBAR_HEIGHT) / (float)cell_height),
     .r = (cfg.elastic_mouse && !term.mouse_mode)
          ? (x - PADDING) % cell_width > cell_width / 2
          : 0

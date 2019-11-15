@@ -5,6 +5,7 @@
 
 #include "winpriv.h"
 #include "winsearch.h"
+#include "wintab.h"
 #include "charset.h"  // wcscpy, wcsncat, combiningdouble
 #include "config.h"
 #include "winimg.h"  // winimgs_paint
@@ -2675,7 +2676,7 @@ win_text(int tx, int ty, wchar *text, int len, cattr attr, cattr *textattr, usho
 
  /* Convert to window coordinates */
   int x = tx * char_width + PADDING;
-  int y = ty * cell_height + PADDING + 100;
+  int y = ty * cell_height + PADDING + TABBAR_HEIGHT;
 
   if (attr.attr & ATTR_WIDE)
     char_width *= 2;
