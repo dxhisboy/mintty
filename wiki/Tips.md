@@ -4,18 +4,26 @@
 Mintty supports a number of common places to look for and save its 
 configuration and resources.
 
-For its configuration file, it reads ```/etc/minttyrc```, ```$APPDATA/mintty/config```, 
-```~/.config/mintty/config```, ```~/.minttyrc```, in this order.
+For its configuration, it reads configuration files in this order:
+* `/etc/minttyrc`
+* `$APPDATA/mintty/config`
+* `~/.config/mintty/config`
+* `~/.minttyrc`
 
 For resource files to configure a colour scheme, 
-wave file for the bell character, or localization files, it looks for 
-subfolders ```themes```, ```sounds```, or ```lang```, respectively, 
-in one of the directories ```~/.mintty```, ```~/.config/mintty```, 
-```$APPDATA/mintty```, ```/usr/share/mintty```, whichever is found first.
+wave file for the bell character, localization files, emoji graphics,
+it looks for subfolders `themes`, `sounds`, `lang`, `emojis`, respectively, 
+in the directories
+* `~/.mintty`
+* `~/.config/mintty`
+* `$APPDATA/mintty`
+* `/usr/share/mintty`
 
 The ```~/.config/mintty``` folder is the XDG default base directory.
 The ```$APPDATA/mintty``` folder is especially useful to share common configuration 
 for various installations of mintty (e.g. Cygwin 32/64 Bit, MSYS, Git Bash, WSL).
+An additional directory for a configuration file and configuration resources 
+can be given with command-line parameter ```--configdir```.
 
 
 ## Using desktop shortcuts to start mintty ##
@@ -147,10 +155,11 @@ using either the wsltty installer, a Chocolatey package, or a Windows Appx packa
 
 To help reproduce the installation manually, for users of cygwin or msys2:
 * Download from the https://github.com/Biswa96/wslbridge2 repository
+* Install package dependencies `make`, `g++`, `linux-headers` in WSL
 * Build the wslbridge2 gateways with
-  * `make` for the frontends (e.g. from cygwin)
-  * `wsl make` or `wsl -d` _distro_ `make` for the backends, using a distro that has `make` and `g++` installed
-* From subdirectory `bin`, install the gateway tools `wslbridge2.exe`, `wslbridge2-backend`, `hvpty.exe`, `hvpty-backend` into your `/bin` directory
+  * `make RELEASE=1` for the frontends (e.g. from cygwin)
+  * `wsl make RELEASE=1` or `wsl -d` _distro_ `make RELEASE=1` for the backends
+* From subdirectory `bin`, install the gateway tools `wslbridge2.exe` and `wslbridge2-backend` into your `/bin` directory
 * Make a desktop shortcut (Desktop right-click – New ▸ Shortcut) with
   * Target: `X:\cygwin64\bin\mintty.exe --WSL=`_distro_` -`, with the desired WSL distro (or empty for default)
   * Icon location (Change Icon…) as appropriate; the wsltty installer will find the distro-specific icon
@@ -279,8 +288,8 @@ are not indicated by the terminfo/termcap mechanism.
 
 The most reliable way to determine the terminal type is to use the 
 Secondary Device Attributes report queried from the terminal.
-The script `terminal` in the mintty [utils repository](https://github.com/mintty/utils) 
-provides an implementation.
+The script `terminal` in the mintty 
+[utils repository](https://github.com/mintty/utils) provides an implementation.
 
 Using environment variables for this purpose is not reliable and therefore 
 not supported. See [issue #776](https://github.com/mintty/mintty/issues/776) 
@@ -691,16 +700,21 @@ With this feature, you can e.g. use a different font for CJK characters.
 Script names are as specified in the Unicode file Scripts.txt, listed in 
 [wiki: Unicode scripts](https://en.wikipedia.org/wiki/Script_(Unicode)) column "Alias".
 
+A special name is `CJK` which comprises Han, Hangul, Katakana, Hiragana, Bopomofo, Kanbun, 
+Halfwidth and Fullwidth Forms (except Latin). A later more specific entry 
+will override an earlier one (see CJK example below).
+
 Configuration example:
 ```
-FontChoice=Hebrew:6;Arabic:7;Han:8;Hangul:9
+FontChoice=Hebrew:6;Arabic:7;CJK:5;Han:8;Hangul:9
 Font6=David
 Font7=Simplified Arabic Fixed
+Font5=Malgun Gothic
 Font8=FangSong
 Font9=MingLiU
 ```
 
-A special name is `PictoSymbols` to assign an alternative font to 
+Another special name is `PictoSymbols` to assign an alternative font to 
 ranges of pictographic symbols, including arrows, mathematical and technical 
 symbols, shapes, dingbats, emoticons etc.
 Configuration example:
@@ -1025,12 +1039,13 @@ the left or right neighbour monitor: Win+Shift+cursor-left/right.
 
 ## Embedding graphics in terminal output ##
 
-The new support of the SIXEL feature facilitates a range of applications 
-that integrate graphic images in the terminal, animated graphics, and even 
-video and interactive gaming applications.
+Mintty supports both Sixel graphics and image graphics output (see below).
 
-An example of the benefit of this feature is the output of `gnuplot` 
-with the command
+The Sixel feature facilitates a range of applications that integrate 
+graphic images in the terminal, animated graphics, and even video and 
+interactive gaming applications.
+
+An example is the output of `gnuplot` with the command
 ```
 export GNUTERM=sixel
 gnuplot -e "splot [x=-3:3] [y=-3:3] sin(x) * cos(y)"
@@ -1038,6 +1053,16 @@ gnuplot -e "splot [x=-3:3] [y=-3:3] sin(x) * cos(y)"
 
 Note that gnuplot uses black text on default background for captions 
 and coordinates so better not run it in a terminal with dark background.
+
+### Image support ###
+
+In addition to the legacy Sixel feature, mintty supports graphic image display 
+(using iTerm2 controls). Image formats supported comprise
+PNG, JPEG, GIF, TIFF, BMP, Exif.
+
+The script `showimg` in the 
+mintty [utils repository](https://github.com/mintty/utils) supports 
+interactive image display.
 
 
 ## Localization ##

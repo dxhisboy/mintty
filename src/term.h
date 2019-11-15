@@ -207,10 +207,11 @@ typedef unsigned long long cattrflags;
 
 typedef struct {
   cattrflags attr;
-  int link;
   colour truebg;
   colour truefg;
   colour ulcolr;
+  int link;
+  int imgi;
 } cattr;
 
 extern const cattr CATTR_DEFAULT;
@@ -262,6 +263,8 @@ extern int sblines(void);
 extern termline *fetch_line(int y);
 extern void release_line(termline *);
 
+
+/* Terminal state */
 typedef struct {
   int width;
   ushort lattr;
@@ -311,11 +314,13 @@ typedef struct {
   bool r;
 } pos;
 
+
 typedef enum {
   MBT_LEFT = 1, MBT_MIDDLE = 2, MBT_RIGHT = 3, MBT_4 = 4, MBT_5 = 5
 } mouse_button;
 
 
+/* Searching */
 typedef struct {
   int x;
   int y;
@@ -334,37 +339,42 @@ typedef struct {
 } termresults;
 
 
+/* Images */
 typedef struct {
-  void *fp;
+  void * fp;
   uint ref_counter;
   uint amount;
 } tempfile_t;
 
 typedef struct {
-  tempfile_t *tempfile;
+  tempfile_t * tempfile;
   size_t position;
 } temp_strage_t;
 
 typedef struct imglist {
-  unsigned char *pixels;
-  void *hdc;
-  void *hbmp;
-  temp_strage_t *strage;
+  int imgi;
+  int cell_width, cell_height;
+  unsigned char * pixels;
+  void * hdc;
+  void * hbmp;
+  temp_strage_t * strage;
   int top;
   int left;
   int width;
   int height;
   int pixelwidth;
   int pixelheight;
-  struct imglist *next;
+  struct imglist * next;
+  char * id;
+  int len;
 } imglist;
 
 typedef struct {
-  void *parser_state;
-  imglist *first;
-  imglist *last;
-  imglist *altfirst;
-  imglist *altlast;
+  void * parser_state;
+  imglist * first;
+  imglist * last;
+  imglist * altfirst;
+  imglist * altlast;
 } termimgs;
 
 
@@ -598,7 +608,7 @@ extern void term_clear_scrollback(void);
 extern void term_mouse_click(mouse_button, mod_keys, pos, int count);
 extern void term_mouse_release(mouse_button, mod_keys, pos);
 extern void term_mouse_move(mod_keys, pos);
-extern void term_mouse_wheel(int delta, int lines_per_notch, mod_keys, pos);
+extern void term_mouse_wheel(bool horizontal, int delta, int lines_per_notch, mod_keys, pos);
 extern void term_select_all(void);
 extern void term_paint(void);
 extern void term_invalidate(int left, int top, int right, int bottom);

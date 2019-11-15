@@ -562,6 +562,7 @@ The \fBSearch\fP menu command and \fBAlt+F3\fP shorcut open a search bar
 with an input field for a search string. Matches are highlighted in the 
 scrollback buffer. \fBEnter\fP/\fBShift+Enter\fP find the next/previous 
 position of the match and scrolls the scrollback buffer accordingly.
+\fBTab\fP focusses back into the terminal pane of the window.
 The appearance of the search bar and the matching highlight colours can be 
 customized.
 .br
@@ -602,6 +603,9 @@ and the Ctrl+Shift+I shortcut (if enabled).
 For configuration, see settings \fBSessionCommands\fP, \fBMenu*\fP, 
 and \fBSessionGeomSync\fP.
 Distinct sets of sessions can be set up with the setting \fB-o Class=...\fP.
+
+Virtual Tabs can be switched quickly with user-defined key assignments, 
+using user-definable functions switch-[visible-](prev|next).
 
 .SS Closing a session
 
@@ -835,7 +839,7 @@ See option \fBKeyFunctions\fP for details.
 
 .SS Embedding graphics in terminal output
 
-The SIXEL graphics support feature facilitates a range of applications 
+The Sixel graphics support feature facilitates a range of applications 
 that integrate graphic images in the terminal, animated graphics, and even 
 video and interactive gaming applications.
 
@@ -844,8 +848,14 @@ with the command
 .br
 GNUTERM=sixel gnuplot -e "splot [x=-3:3] [y=-3:3] sin(x) * cos(y)"
 
-\fINote:\fP The number of sixel images displayed on the screen is limited 
+\fINote:\fP The number of Sixel images displayed on the screen is limited 
 in order to prevent Windows handle resource exhaustion.
+
+.TP
+\fBImage support\fP
+In addition to the legacy Sixel feature, mintty supports graphic image display 
+(using iTerm2 controls). Image formats supported comprise
+PNG, JPEG, GIF, TIFF, BMP, Exif.
 
 .SS Emoji display support
 
@@ -1103,6 +1113,7 @@ Script names are as specified in the Unicode file Scripts.txt, listed
 in \fIhttps://en.wikipedia.org/wiki/Script_(Unicode)\fP column "Alias".
 (The definition list can be split over multiple lines if a separator is 
 followed by a backslash, newline, and optional whitespace indentation.)
+.br
 A special name is \fBPictoSymbols\fP to assign an alternative font to 
 ranges of pictographic symbols from Unicode blocks matching 
 Arrows, Mathematical Operators, Technical, Enclosed Alphanumerics, 
@@ -1110,13 +1121,21 @@ Pictographs, Control Pictures, Optical, Box Drawing, Miscellaneous.*Symbols,
 Block Elements, Geometric Shapes, Dingbats, Tiles, Cards, Emoticons, 
 Transport, Alchemical, Chess.
 .br
+Another special name is \fBCJK\fP which comprises Han, Hangul, 
+Katakana, Hiragana, Bopomofo, Kanbun, 
+Halfwidth and Fullwidth Forms (except Latin). A later more specific entry 
+will override an earlier one (see CJK example below).
+
+.br
 Example:
 .br
-  \fBFontChoice=Hebrew:6;Arabic:7;Han:8;Hangul:9\fP
+  \fBFontChoice=Hebrew:6;Arabic:7;CJK:5;Han:8;Hangul:9\fP
 .br
   \fBFont6=David\fP
 .br
   \fBFont7=Simplified Arabic Fixed\fP
+.br
+  \fBFont5=Malgun Gothic\fP
 .br
   \fBFont8=FangSong\fP
 .br
@@ -1268,7 +1287,7 @@ a different colour, Default colour only uses a bold font.
 BoldAsFont and BoldAsColour independently, such that it is possible to 
 choose only bold font, or only different colour, or both.
 .br
-\(en Note that Default bold display can be overridden by the BoldColour mode.
+\(en Note that Default bold display can be overridden by a BoldColour setting.
 
 .TP
 \fBAllow blinking\fP (AllowBlinking=no)
@@ -1319,11 +1338,14 @@ selected locale and character set.
 unrelated to the terminal character set (e.g. LC_MESSAGES) are cleared 
 to avoid confusion.
 
-\fINote:\fP If the locale option is set, mintty further checks whether 
+\fINote:\fP If the \fBLocale\fP option is set, mintty further checks whether 
 the locale is a "wide" locale (i.e. ambiguous-width characters are wide 
-in the locale) but the selected font is actually "ambiguous-narrow" 
-(i.e. ambiguous-width characters are narrow in the font) in which case it 
-appends the "@cjknarrow" locale modifier.
+in a CJK locale) but the selected font is actually "ambiguous-narrow" 
+(i.e. ambiguous-width characters are narrow in the font, as detected at 
+characters U+03B1 and U+2500) in which case it appends the 
+"@cjknarrow" locale modifier, in order to adapt the selected locale to 
+the chosen font.
+(This would be overridden by setting \fBCharwidth=ambig-wide\fP.)
 
 By default, the selected locale also determines the character width 
 assumptions used for screen rendering. For exceptions, see the 
@@ -2108,7 +2130,7 @@ inconsistent for the impacted characters, which may confuse
 screen applications (such as editors) that rely on \fBwcwidth\fP information.
 
 .TP
-\fBCharacter narrowing factor\fP (CharNarrowing=70)
+\fBCharacter narrowing factor\fP (CharNarrowing=75)
 Depending on the font and font fallback (either by Windows means or 
 via option \fBFontChoice\fP), some glyphs may be too wide for the 
 character cell grid. Mintty applies automatic narrowing heuristics 
@@ -3028,7 +3050,7 @@ In addition, mintty supports a maximum of ANSI and ECMA-48 character attribute c
 strikeout, rapid blinking, alternative fonts) and additional 
 rendering attributes (underline styles and colours, superscript and subscript, 
 shadowed and overstrike).
-Mintty provides Sixel graphics support, Emoji support, and 
+Mintty provides Sixel graphics and other image support, Emoji support, and 
 Bidi reordering according to the Unicode Bidi Algorithm UBA, amended 
 with flexible bidi controls according to the draft bidi mode model of 
 the \fBBiDi in Terminal Emulators\fP recommendation 

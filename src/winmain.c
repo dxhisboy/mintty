@@ -1430,7 +1430,9 @@ win_update_glass(bool opaque)
       ACCENT_ENABLE_GRADIENT = 1,
       ACCENT_ENABLE_TRANSPARENTGRADIENT = 2,
       ACCENT_ENABLE_BLURBEHIND = 3,
-      ACCENT_INVALID_STATE = 4
+      ACCENT_ENABLE_ACRYLICBLURBEHIND = 4,
+      ACCENT_ENABLE_HOSTBACKDROP = 5,
+      ACCENT_INVALID_STATE = 6
     };
     enum WindowCompositionAttribute
     {
@@ -1463,6 +1465,7 @@ win_update_glass(bool opaque)
       sizeof(policy)
     };
 
+    //printf("SetWindowCompositionAttribute %d\n", policy.nAccentState);
     pSetWindowCompositionAttribute(wnd, &data);
   }
 }
@@ -2629,7 +2632,12 @@ static struct {
           }
         }
 
-    when WM_MOUSEWHEEL: {
+#ifndef WM_MOUSEHWHEEL
+#define WM_MOUSEHWHEEL 0x020E
+#endif
+
+    when WM_MOUSEWHEEL or WM_MOUSEHWHEEL: {
+      bool horizontal = message == WM_MOUSEHWHEEL;
       // check whether in client area (terminal pane) or over scrollbar...
       POINT wpos = {.x = GET_X_LPARAM(lp), .y = GET_Y_LPARAM(lp)};
       ScreenToClient(wnd, &wpos);
@@ -2637,12 +2645,12 @@ static struct {
       win_get_pixels(&height, &width, false);
       height += 2 * PADDING;
       width += 2 * PADDING;
-      int delta = GET_WHEEL_DELTA_WPARAM(wp);  // positive means up
+      int delta = GET_WHEEL_DELTA_WPARAM(wp);  // positive means up or right
       //printf("%d %d %d %d %d\n", wpos.y, wpos.x, height, width, delta);
       if (wpos.y >= 0 && wpos.y < height) {
         if (wpos.x >= 0 && wpos.x < width)
-          win_mouse_wheel(wp, lp);
-        else {
+          win_mouse_wheel(wpos, horizontal, delta);
+        else if (!horizontal) {
           int hsb = win_has_scrollbar();
           if (hsb && term.app_scrollbar) {
             int wsb = GetSystemMetrics(SM_CXVSCROLL);
@@ -4141,7 +4149,7 @@ main(int argc, char *argv[])
   }
 
   bool wdpresent = true;
-  if (invoked_from_shortcut) {
+  if (invoked_from_shortcut && sui.lpTitle) {
     shortcut = wcsdup(sui.lpTitle);
     setenv("MINTTY_SHORTCUT", path_win_w_to_posix(shortcut), true);
     wchar * icon = get_shortcut_icon_location(sui.lpTitle, &wdpresent);
@@ -4496,14 +4504,17 @@ main(int argc, char *argv[])
   // Work out what to execute.
   argv += optind;
   if (wsl_guid && wsl_launch) {
+    argc -= optind;
 #ifdef wslbridge2
-    cmd = wsl_ver > 1 ? "/bin/hvpty" : "/bin/wslbridge2";
-    char * cmd0 = wsl_ver > 1 ? "-hvpty" : "-wslbridge2";
+# ifndef __x86_64__
+    argc += 2;  // -V 1/2
+# endif
+    cmd = "/bin/wslbridge2";
+    char * cmd0 = "-wslbridge2";
 #else
     cmd = "/bin/wslbridge";
     char * cmd0 = "-wslbridge";
 #endif
-    argc -= optind;
     bool login_dash = false;
     if (*argv && !strcmp(*argv, "-") && !argv[1]) {
       login_dash = true;
@@ -4514,6 +4525,7 @@ main(int argc, char *argv[])
 #ifdef wslbridge2
     argc += start_home;
 #endif
+
     char ** new_argv = newn(char *, argc + 8 + start_home + (wsltty_appx ? 2 : 0));
     char ** pargv = new_argv;
     if (login_dash) {
@@ -4525,6 +4537,15 @@ main(int argc, char *argv[])
     }
     else
       *pargv++ = cmd;
+#ifdef wslbridge2
+# ifndef __x86_64__
+    *pargv++ = "-V";
+    if (wsl_ver > 1)
+      *pargv++ = "2";
+    else
+      *pargv++ = "1";
+# endif
+#endif
     if (*wsl_guid) {
 #ifdef wslbridge2
       if (*wslname) {
@@ -4588,14 +4609,8 @@ main(int argc, char *argv[])
 
     if (wsltty_appx && lappdata && *lappdata) {
 #ifdef wslbridge2
-      char * wslbridge_backend = asform(
-                                 wsl_ver > 1
-                                 ? "%s/hvpty-backend"
-                                 : "%s/wslbridge2-backend"
-                                 , lappdata);
-      char * bin_backend = wsl_ver > 1
-                           ? "/bin/hvpty-backend"
-                           : "/bin/wslbridge2-backend";
+      char * wslbridge_backend = asform("%s/wslbridge2-backend", lappdata);
+      char * bin_backend = "/bin/wslbridge2-backend";
       bool ok = copyfile(bin_backend, wslbridge_backend, true);
 #else
       char * wslbridge_backend = asform("%s/wslbridge-backend", lappdata);
@@ -4713,7 +4728,7 @@ main(int argc, char *argv[])
 
   // Expand AppID placeholders
   wchar * app_id = 0;
-  if (invoked_from_shortcut)
+  if (invoked_from_shortcut && sui.lpTitle)
     app_id = get_shortcut_appid(sui.lpTitle);
   if (!app_id)
     app_id = group_id(cfg.app_id);

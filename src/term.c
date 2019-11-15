@@ -1227,6 +1227,13 @@ term_do_scroll(int topline, int botline, int lines, bool sb)
     scroll_pos(&term.sel_start);
     scroll_pos(&term.sel_anchor);
     scroll_pos(&term.sel_end);
+
+    // Move graphics if within the scroll region
+    for (imglist * cur = term.imgs.first; cur; cur = cur->next) {
+      if (cur->top - term.virtuallines >= topline) {
+        cur->top += lines;
+      }
+    }
   }
   else {
     int seltop = topline;
@@ -2099,10 +2106,26 @@ term_paint(void)
            )
         {
           //printf("[%d:%d] narrow? %04X..%04X\n", i, j, tchar, chars[j + 1].chr);
+          xchar ch = tchar;
+          if ((ch & 0xFC00) == 0xD800 && d->cc_next) {
+            termchar * cc = d + d->cc_next;
+            if ((cc->chr & 0xFC00) == 0xDC00) {
+              ch = ((xchar) (ch - 0xD7C0) << 10) | (cc->chr & 0x03FF);
+            }
+          }
+          if ((ch >= 0x2190 && ch <= 0x2BFF)
+           || (ch >= 0x1F000 && ch <= 0x1FAFF)
+             )
+          {
+            //tattr.attr |= ATTR_NARROW1; // ?
+          }
+          else
 #ifdef failed_attempt_to_tame_narrowing
-          if (j + 1 < term.cols && chars[j + 1].chr != ' ')
+            if (j + 1 < term.cols && chars[j + 1].chr != ' ')
 #endif
-          tattr.attr |= ATTR_NARROW;
+            tattr.attr |= ATTR_NARROW;
+            //if (ch != 0x25CC)
+            //printf("char %lc U+%04X narrow %d ambig %d\n", ch, ch, !!(tattr.attr & ATTR_NARROW), ambigwide(ch));
         }
         else if (tattr.attr & ATTR_WIDE
                  // guard character expanding properly to avoid 
@@ -2435,7 +2458,7 @@ term_paint(void)
                     || (tattr.truebg != attr.truebg)
                     || (tattr.ulcolr != attr.ulcolr);
 
-      if (tattr.attr & ATTR_NARROW)
+      if (tchar != SIXELCH && (tattr.attr & ATTR_NARROW))
         trace_run("narrow"), break_run = true;
 
       if (tattr.attr & TATTR_EMOJI)

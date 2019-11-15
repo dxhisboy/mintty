@@ -7,7 +7,7 @@
 #include "winsearch.h"
 #include "charset.h"  // wcscpy, wcsncat, combiningdouble
 #include "config.h"
-#include "winimg.h"  // winimg_paint
+#include "winimg.h"  // winimgs_paint
 
 #include <winnls.h>
 #include <usp10.h>  // Uniscribe
@@ -298,8 +298,10 @@ row_padding(int i, int e)
   }
 }
 
+static char * font_warnings = 0;
+
 static void
-show_font_warning(struct fontfam * ff, char * msg)
+font_warning(struct fontfam * ff, char * msg)
 {
   // suppress multiple font error messages
   if (ff->name_reported && wcscmp(ff->name_reported, ff->name) == 0) {
@@ -312,16 +314,26 @@ show_font_warning(struct fontfam * ff, char * msg)
   }
 
   char * fn = cs__wcstoutf(ff->name);
-  char * fullmsg;
-  int len = asprintf(&fullmsg, "%s:\n%s", msg, fn);
-  free(fn);
-  if (len > 0) {
-    show_message(fullmsg, MB_ICONWARNING);
-    free(fullmsg);
+  if (font_warnings) {
+    char * newfw = asform("%s\n%s:\n%s", font_warnings, msg, fn);
+    free(font_warnings);
+    font_warnings = newfw;
   }
   else
-    show_message(msg, MB_ICONWARNING);
+    font_warnings = asform("%s:\n%s", msg, fn);
+  free(fn);
 }
+
+static void
+show_font_warnings(void)
+{
+  if (font_warnings) {
+    show_message(font_warnings, MB_ICONWARNING);
+    free(font_warnings);
+    font_warnings = 0;
+  }
+}
+
 
 #ifndef TCI_SRCLOCALE
 //old MinGW
@@ -455,7 +467,7 @@ adjust_font_weights(struct fontfam * ff, int findex)
 
   // check if no font found
   if (!data.font_found) {
-    show_font_warning(ff, _("Font not found, using system substitute"));
+    font_warning(ff, _("Font not found, using system substitute"));
     ff->fw_norm = 400;
     ff->fw_bold = 700;
     trace_font(("//\n"));
@@ -470,7 +482,7 @@ adjust_font_weights(struct fontfam * ff, int findex)
       // don't report for alternative / secondary fonts
     }
     else
-      show_font_warning(ff, _("Font has limited support for character ranges"));
+      font_warning(ff, _("Font has limited support for character ranges"));
   }
 
   // find available widths closest to selected widths
@@ -575,7 +587,7 @@ win_init_fontfamily(HDC dc, int findex)
   GetTextMetrics(dc, &tm);
   if (!tm.tmHeight) {
     // corrupt font installation (e.g. deleted font file)
-    show_font_warning(ff, _("Font installation corrupt, using system substitute"));
+    font_warning(ff, _("Font installation corrupt, using system substitute"));
     wstrset(&ff->name, W(""));
     ff->fonts[FONT_NORMAL] = create_font(ff->name, ff->fw_norm, false);
     GetObject(ff->fonts[FONT_NORMAL], sizeof(LOGFONT), &logfont);
@@ -588,7 +600,7 @@ win_init_fontfamily(HDC dc, int findex)
 #ifdef check_charset_only_for_returned_font
   int default_charset = get_default_charset();
   if (tm.tmCharSet != default_charset && default_charset != DEFAULT_CHARSET) {
-    show_font_warning(ff, _("Font does not support system locale"));
+    font_warning(ff, _("Font does not support system locale"));
   }
 #endif
 
@@ -889,6 +901,8 @@ win_init_fonts(int size)
 
     win_init_fontfamily(dc, fi);
   }
+  if (initinit)
+    show_font_warnings();
   initinit = false;
 
   ReleaseDC(wnd, dc);
@@ -1206,7 +1220,7 @@ do_update(void)
   term_update_search();
 
   term_paint();
-  winimg_paint();
+  winimgs_paint();
 
   ReleaseDC(wnd, dc);
 
@@ -3854,6 +3868,7 @@ win_check_glyphs(wchar *wcs, uint num, cattrflags attr)
   int findex = (attr & FONTFAM_MASK) >> ATTR_FONTFAM_SHIFT;
   if (findex > 10)
     findex = 0;
+
   struct fontfam * ff = &fontfamilies[findex];
 
   HFONT f = font4(ff, attr);
@@ -3862,6 +3877,22 @@ win_check_glyphs(wchar *wcs, uint num, cattrflags attr)
   SelectObject(dc, f);
   ushort glyphs[num];
   GetGlyphIndicesW(dc, wcs, num, glyphs, true);
+
+  // recheck for characters affected by FontChoice
+  for (uint i = 0; i < num; i++) {
+    uchar cf = scriptfont(wcs[i]);
+#ifdef debug_scriptfonts
+    if (wcs[i] && cf)
+      printf("scriptfont %04X: %d\n", wcs[i], cf);
+#endif
+    if (cf && cf <= 10) {
+      struct fontfam * ff = &fontfamilies[cf];
+      f = font4(ff, attr);
+      SelectObject(dc, f);
+      GetGlyphIndicesW(dc, &wcs[i], 1, &glyphs[i], true);
+    }
+  }
+
   for (uint i = 0; i < num; i++) {
     if (glyphs[i] == 0xFFFF || glyphs[i] == 0x1F)
       wcs[i] = 0;
@@ -4334,7 +4365,7 @@ win_paint(void)
   //if (kb_trace) printf("[%ld] win_paint state %d (idl/blk/pnd)\n", mtime(), update_state);
   if (update_state != UPDATE_PENDING) {
     term_paint();
-    winimg_paint();
+    winimgs_paint();
   }
 
   if (// do not just check whether a background was configured
