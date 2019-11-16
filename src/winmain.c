@@ -539,6 +539,7 @@ update_tab_titles()
     WINDOWINFO curr_wnd_info;
     curr_wnd_info.cbSize = sizeof(WINDOWINFO);
     GetWindowInfo(curr_wnd, &curr_wnd_info);
+    puts("post message");
     if (class_atom == curr_wnd_info.atomWindowType) {
       if (curr_wnd != wnd) {
         PostMessage(curr_wnd, WM_USER, 0, WIN_TITLE);
@@ -549,7 +550,7 @@ update_tab_titles()
     }
     return true;
   }
-  if (cfg.geom_sync) {
+  if (cfg.geom_sync || true) {
     // update my own list
     refresh_tab_titles(true);
     // tell the others to update their's
@@ -2454,6 +2455,7 @@ static struct {
         ShowWindow(wnd, SW_RESTORE);
       }
       else if (!wp && lp == WIN_TITLE) {
+	puts("WIN_TITLE");
         if (cfg.geom_sync)
           refresh_tab_titles(false);
       }
