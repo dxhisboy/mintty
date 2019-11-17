@@ -62,6 +62,7 @@ bool icon_is_from_shortcut = false;
 
 HINSTANCE inst;
 HWND wnd;
+extern HWND empty_wnd;
 HIMC imc;
 ATOM class_atom;
 
@@ -521,6 +522,9 @@ refresh_tab_titles(bool trace)
   clear_tabinfo();
   EnumWindows(wnd_enum_tabs, (LPARAM)trace);
   sort_tabinfo();
+  InvalidateRect(empty_wnd, NULL, true);
+  SendMessage(empty_wnd, WM_PAINT, 0, 0);
+
 #if defined(debug_tabbar) || defined(debug_win_switch)
   for (int w = 0; w < ntabinfo; w++)
     printf("[%d] %p eq %d iconic %d <%ls>\n", w, tabinfo[w].wnd, tabinfo[w].wnd == wnd, IsIconic(tabinfo[w].wnd), tabinfo[w].title);
@@ -2456,7 +2460,7 @@ static struct {
       }
       else if (!wp && lp == WIN_TITLE) {
 	puts("WIN_TITLE");
-        if (cfg.geom_sync)
+        if (cfg.geom_sync || true)
           refresh_tab_titles(false);
       }
       else if (cfg.geom_sync) {
