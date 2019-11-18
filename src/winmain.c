@@ -62,7 +62,7 @@ bool icon_is_from_shortcut = false;
 
 HINSTANCE inst;
 HWND wnd;
-extern HWND empty_wnd;
+extern HWND tabbar_wnd;
 HIMC imc;
 ATOM class_atom;
 
@@ -522,8 +522,8 @@ refresh_tab_titles(bool trace)
   clear_tabinfo();
   EnumWindows(wnd_enum_tabs, (LPARAM)trace);
   sort_tabinfo();
-  InvalidateRect(empty_wnd, NULL, true);
-  SendMessage(empty_wnd, WM_PAINT, 0, 0);
+  InvalidateRect(tabbar_wnd, NULL, true);
+  SendMessage(tabbar_wnd, WM_PAINT, 0, 0);
 
 #if defined(debug_tabbar) || defined(debug_win_switch)
   for (int w = 0; w < ntabinfo; w++)
@@ -1865,7 +1865,7 @@ win_adapt_term_size(bool sync_size_with_font, bool scale_font_with_size)
   if (!sync_size_with_font && win_search_visible()) {
     term_height -= SEARCHBAR_HEIGHT;
   }
-  if (!sync_size_with_font && win_empty_visible()) {
+  if (!sync_size_with_font && win_tabbar_visible()) {
     term_height -= TABBAR_HEIGHT;
   }
   if (scale_font_with_size && term.cols != 0 && term.rows != 0) {
