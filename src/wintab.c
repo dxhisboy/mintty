@@ -1,4 +1,5 @@
 #include "winpriv.h"
+#include <windowsx.h>
 #include <stdio.h>
 #include <string.h>
 int TABBAR_HEIGHT = 0;
@@ -26,6 +27,7 @@ static HFONT tabbar_font;
 static bool initialized = false;
 int max_tab_width = 300;
 int min_tab_width = 20;
+int prev_tab_width = 0;
 #define TABBARCLASS "TabBar"
 /* static int wcswid(const wchar_t *s){ */
 /*   return (cell_width * 1.6) * wcslen(s); */
@@ -88,7 +90,7 @@ static void paint_tab(HDC dc, int tab_width, int tab_height, int i){
   ExtTextOutW(dc, left + tab_width / 2, (tab_height - cell_height) / 2 + padding, ETO_CLIPPED, &textrect, title_fit, wcslen(title_fit), NULL);
 }
 static LRESULT CALLBACK
-nothing_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
+tabbar_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
   RECT cr;
   GetClientRect(wnd, &cr);
@@ -100,24 +102,31 @@ nothing_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     int height = cell_height + (cell_width / 6 + 1) * 2;
     PAINTSTRUCT pntS;
     HDC dc = BeginPaint(tabbar_wnd, &pntS);
-    RECT cr;
-    GetClientRect(tabbar_wnd, &cr);
-    SetTextColor(dc, tabbar_fg_colour);
+    /* RECT cr; */
+    /* GetClientRect(tabbar_wnd, &cr); */
+    /* SetTextColor(dc, tabbar_fg_colour); */
     SelectObject(dc, tabbar_font);
     SetBkMode(dc, TRANSPARENT);
-    SetBkColor(dc, tabbar_fg_colour);
+    //SetBkColor(dc, tabbar_fg_colour);
     SetTextAlign(dc, TA_CENTER | VTA_CENTER);
-    SelectObject(dc, tabbar_pen);
-    SelectObject(dc, tabbar_brush);
+    /* SelectObject(dc, tabbar_pen); */
+    /* SelectObject(dc, tabbar_brush); */
 
     int tab_width = win_width / ntabinfo;
     tab_width = min(tab_width, max_tab_width);
     tab_width = max(tab_width, min_tab_width);
+    prev_tab_width = tab_width;
     for (int i = 0; i < ntabinfo; i ++){
       paint_tab(dc, tab_width, height, i);
     }
     EndPaint(wnd, &pntS);
     return 0;
+  } else if (msg == WM_LBUTTONUP && prev_tab_width > 0) {
+    int xpos = GET_X_LPARAM(lp);
+    int ypos = GET_Y_LPARAM(lp);
+    int tidx = xpos / prev_tab_width;
+    printf("%d %d %ls\n", xpos, ypos, tabinfo[tidx].title);
+    SetForegroundWindow(tabinfo[tidx].wnd);
   }
   return DefWindowProcA(hwnd, msg, wp, lp);;
 }
@@ -133,12 +142,12 @@ tabbar_init()
   tabbar_cur_brush = CreateSolidBrush(tabbar_cur_bg_colour);
   RegisterClassA(&(WNDCLASSA){
                                 .style = 0,
-				.lpfnWndProc = nothing_proc,
+				.lpfnWndProc = tabbar_proc,
 				.cbClsExtra = 0,
  				.cbWndExtra = 0,
 				.hInstance = inst,
 				.hIcon = NULL,
-				.hCursor = NULL,
+				.hCursor = LoadCursor(NULL, IDC_ARROW),
 				.hbrBackground = tabbar_brush,//(HBRUSH)(COLOR_3DFACE + 1),
 				.lpszMenuName = NULL,
 				.lpszClassName = TABBARCLASS
@@ -204,6 +213,7 @@ win_toggle_tabbar(bool show, bool focus)
     ShowWindow(tabbar_wnd, SW_SHOW);
   } else {
     TABBAR_HEIGHT = 0;
+    prev_tab_width = 0;
     ShowWindow(tabbar_wnd, SW_HIDE);
   }
   puts("colors");
