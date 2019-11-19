@@ -50,7 +50,7 @@ static int fit_title(HDC dc, RECT textrect, wchar_t *title_in, wchar_t *title_ou
     return title_len;
   }
   printf("%d %d\n", text_width, textrect.right - textrect.left);
-  wcsncpy(title_out, L"**", olen);
+  wcsncpy(title_out, L"\u2026\u2026", olen);
   title_out[0] = title_in[0];
   GetTextExtentPoint32W(dc, title_out, 2, &text_size);
   text_width = text_size.cx;
@@ -66,35 +66,15 @@ static int fit_title(HDC dc, RECT textrect, wchar_t *title_in, wchar_t *title_ou
   wcsncpy(title_out + 2, title_in + i + 1, olen - 2);
   return wcsnlen(title_out, olen);
 }
-static void paint_tab(HDC dc, int tab_width, int tab_height, int i){
-  int margin = cell_width / 6 + 1;
-  int padding = margin * 2;
-  if (tabinfo[i].wnd == wnd) {
-    SetTextColor(dc, tabbar_cur_fg_colour);
-    SelectObject(dc, tabbar_cur_brush);
-    SelectObject(dc, tabbar_cur_pen);
-  } else {
-    SetTextColor(dc, tabbar_fg_colour);
-    SelectObject(dc, tabbar_brush);
-    SelectObject(dc, tabbar_pen);
-  }
-  int left = tab_width * i;
-  RECT textrect = {.left=left + margin, .right=left + tab_width - margin, .top = padding, .bottom = tab_height + padding};
-  if (tabinfo[i].wnd == wnd) {
-    Rectangle(dc, left - margin, padding - margin, left + tab_width + margin, tab_height + padding);
-  } else {
-    Rectangle(dc, left, padding, left + tab_width, tab_height + padding);
-  }
-  wchar_t title_fit[256];
-  fit_title(dc, textrect, tabinfo[i].title, title_fit, 256);
-  ExtTextOutW(dc, left + tab_width / 2, (tab_height - cell_height) / 2 + padding, ETO_CLIPPED, &textrect, title_fit, wcslen(title_fit), NULL);
-}
+
 static LRESULT CALLBACK
 tabbar_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
   RECT cr;
   GetClientRect(wnd, &cr);
   int win_width = cr.right - cr.left;
+  int margin = cell_width / 6 + 1;
+  int padding = margin * 2;
 
   printf("%p %p %p %p\n", &wp, &lp, &msg, &hwnd);
   if (msg == WM_PAINT){
@@ -102,23 +82,55 @@ tabbar_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     int height = cell_height + (cell_width / 6 + 1) * 2;
     PAINTSTRUCT pntS;
     HDC dc = BeginPaint(tabbar_wnd, &pntS);
-    /* RECT cr; */
-    /* GetClientRect(tabbar_wnd, &cr); */
-    /* SetTextColor(dc, tabbar_fg_colour); */
+
     SelectObject(dc, tabbar_font);
     SetBkMode(dc, TRANSPARENT);
-    //SetBkColor(dc, tabbar_fg_colour);
     SetTextAlign(dc, TA_CENTER | VTA_CENTER);
-    /* SelectObject(dc, tabbar_pen); */
-    /* SelectObject(dc, tabbar_brush); */
+    SetTextColor(dc, tabbar_fg_colour);
+    SelectObject(dc, tabbar_brush);
+    SelectObject(dc, tabbar_pen);
 
     int tab_width = win_width / ntabinfo;
     tab_width = min(tab_width, max_tab_width);
     tab_width = max(tab_width, min_tab_width);
     prev_tab_width = tab_width;
+    int tab_me = -1;
     for (int i = 0; i < ntabinfo; i ++){
-      paint_tab(dc, tab_width, height, i);
+      if (tabinfo[i].wnd == wnd)
+	tab_me = i;
+      else {
+	int left = tab_width * i;
+	RECT textrect = {.left=left + margin, .right=left + tab_width - margin, .top = padding, .bottom = height + padding};
+	Rectangle(dc, left, padding, left + tab_width, height + padding);
+  
+	wchar_t title_fit[256];
+	fit_title(dc, textrect, tabinfo[i].title, title_fit, 256);
+	ExtTextOutW(dc, left + tab_width / 2, (height - cell_height) / 2 + padding, ETO_CLIPPED, &textrect, title_fit, wcslen(title_fit), NULL);
+      }
     }
+    if (tab_me >= 0) {
+      SetTextColor(dc, tabbar_fg_colour);
+      SelectObject(dc, tabbar_cur_brush);
+      SelectObject(dc, tabbar_pen);
+      int left = tab_width * tab_me;
+      RECT textrect = {.left = left + margin, .right = left + tab_width - margin, .top = padding, .bottom = height + padding};
+      POINT me_pts[] = {
+			{0, height + padding * 2},
+			{0, height + padding},
+			{left - margin, height + padding},
+			{left - margin, padding - margin},
+			{left + tab_width + margin, padding - margin},
+			{left + tab_width + margin, height + padding},
+			{win_width, height + padding},
+			{win_width, height + padding * 2}
+      };
+      Polygon(dc, me_pts, 8);
+      wchar_t title_fit[256];
+      fit_title(dc, textrect, tabinfo[tab_me].title, title_fit, 256);
+      ExtTextOutW(dc, left + tab_width / 2, (height - cell_height) / 2 + padding, ETO_CLIPPED, &textrect, title_fit, wcslen(title_fit), NULL); 
+      //paint_tab(dc, tab_width, height, tab_me);
+    }
+    //Rectangle(dc, 0, padding + height, win_width, padding * 2 + height);
     EndPaint(wnd, &pntS);
     return 0;
   } else if (msg == WM_LBUTTONUP && prev_tab_width > 0) {
@@ -126,7 +138,10 @@ tabbar_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     int ypos = GET_Y_LPARAM(lp);
     int tidx = xpos / prev_tab_width;
     printf("%d %d %ls\n", xpos, ypos, tabinfo[tidx].title);
-    SetForegroundWindow(tabinfo[tidx].wnd);
+    HWND top_wnd = tabinfo[tidx].wnd;
+    SetForegroundWindow(top_wnd);
+    if (IsIconic(top_wnd))
+      ShowWindow(top_wnd, SW_RESTORE);
   }
   return DefWindowProcA(hwnd, msg, wp, lp);;
 }
@@ -205,10 +220,10 @@ win_toggle_tabbar(bool show, bool focus)
   }
   if (TABBAR_HEIGHT == 0){
     show = show || focus;
-    TABBAR_HEIGHT = height + padding;
+    TABBAR_HEIGHT = height + padding * 2;
     SetWindowPos(tabbar_wnd, 0,
 		 cr.right - width, 0,//cr.bottom - height,
-		 width, height + padding,
+		 width, height + padding * 2,
 		 SWP_NOZORDER);
     ShowWindow(tabbar_wnd, SW_SHOW);
   } else {
