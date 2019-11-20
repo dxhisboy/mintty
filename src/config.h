@@ -208,6 +208,7 @@ typedef struct {
   int bloom;
   string old_options;
   bool old_xbuttons;
+  bool show_tabbar;
   // Legacy
   bool use_system_colours;
   bool old_bold;

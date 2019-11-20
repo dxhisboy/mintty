@@ -227,7 +227,8 @@ const config default_cfg = {
   .baud = 0,
   .bloom = 0,
   .old_xbuttons = false,
-  .old_options = ""
+  .old_options = "",
+  .show_tabbar = false
 };
 
 config cfg, new_cfg, file_cfg;
@@ -459,7 +460,8 @@ options[] = {
   {"Bloom", OPT_INT, offcfg(bloom)},
   {"OldXButtons", OPT_BOOL, offcfg(old_xbuttons)},
   {"OldOptions", OPT_STRING, offcfg(old_options)},
-
+  {"ShowTabBar", OPT_BOOL, offcfg(show_tabbar)},
+  
   // ANSI colours
   {"Black", OPT_COLOUR, offcfg(ansi_colours[BLACK_I])},
   {"Red", OPT_COLOUR, offcfg(ansi_colours[RED_I])},

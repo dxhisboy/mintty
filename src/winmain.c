@@ -62,7 +62,6 @@ bool icon_is_from_shortcut = false;
 
 HINSTANCE inst;
 HWND wnd;
-extern HWND tabbar_wnd;
 HIMC imc;
 ATOM class_atom;
 
@@ -458,7 +457,7 @@ sort_tabinfo()
   ///TODO: Maintain a local list of them.
   To be used for tab bar display.
  */
-void
+static void
 refresh_tab_titles(bool trace)
 {
   BOOL CALLBACK wnd_enum_tabs(HWND curr_wnd, LPARAM lp)
@@ -485,7 +484,7 @@ refresh_tab_titles(bool trace)
 #ifdef debug_tabbar
       printf("[%8p] get tab %8p: <%ls>\n", wnd, curr_wnd, title);
 #endif
-      printf("[%8p] get tab %8p: <%ls>\n", wnd, curr_wnd, title);
+
       static bool sort_tabs_by_time = true;
 
       if (sort_tabs_by_time) {
@@ -497,8 +496,6 @@ refresh_tab_titles(bool trace)
         if (GetProcessTimes(ph, &cr_time, &dummy, &dummy, &dummy)) {
           unsigned long long crtime = ((unsigned long long)cr_time.dwHighDateTime << 32) | cr_time.dwLowDateTime;
           add_tabinfo(crtime, curr_wnd, title);
-	  printf("added [%8p] get tab %8p: <%ls>\n", wnd, curr_wnd, title);
-
           if (trace) {
 #ifdef debug_tabbar
             SYSTEMTIME start_time;
@@ -522,9 +519,6 @@ refresh_tab_titles(bool trace)
   clear_tabinfo();
   EnumWindows(wnd_enum_tabs, (LPARAM)trace);
   sort_tabinfo();
-  InvalidateRect(tabbar_wnd, NULL, true);
-  SendMessage(tabbar_wnd, WM_PAINT, 0, 0);
-
 #if defined(debug_tabbar) || defined(debug_win_switch)
   for (int w = 0; w < ntabinfo; w++)
     printf("[%d] %p eq %d iconic %d <%ls>\n", w, tabinfo[w].wnd, tabinfo[w].wnd == wnd, IsIconic(tabinfo[w].wnd), tabinfo[w].title);
@@ -543,7 +537,6 @@ update_tab_titles()
     WINDOWINFO curr_wnd_info;
     curr_wnd_info.cbSize = sizeof(WINDOWINFO);
     GetWindowInfo(curr_wnd, &curr_wnd_info);
-    puts("post message");
     if (class_atom == curr_wnd_info.atomWindowType) {
       if (curr_wnd != wnd) {
         PostMessage(curr_wnd, WM_USER, 0, WIN_TITLE);
@@ -554,9 +547,10 @@ update_tab_titles()
     }
     return true;
   }
-  if (cfg.geom_sync || true) {
+  if (cfg.geom_sync || win_tabbar_visible()) {
     // update my own list
     refresh_tab_titles(true);
+    win_update_tabbar();
     // tell the others to update their's
     EnumWindows(wnd_enum_tabs, 0);
   }
@@ -882,6 +876,7 @@ win_switch(bool back, bool alternate)
   }
 #else
   refresh_tab_titles(false);
+  win_update_tabbar();
   win_to_top(back ? get_prev_tab(alternate) : get_next_tab(alternate));
 #endif
 }
@@ -1913,6 +1908,7 @@ win_adapt_term_size(bool sync_size_with_font, bool scale_font_with_size)
   win_invalidate_all(false);
 
   win_update_search();
+  win_update_tabbar();
   term_schedule_search_update();
   win_schedule_update();
 }
@@ -2459,9 +2455,10 @@ static struct {
         ShowWindow(wnd, SW_RESTORE);
       }
       else if (!wp && lp == WIN_TITLE) {
-	puts("WIN_TITLE");
-        if (cfg.geom_sync || true)
+        if (cfg.geom_sync || win_tabbar_visible()) {
           refresh_tab_titles(false);
+	  win_update_tabbar();
+	}
       }
       else if (cfg.geom_sync) {
 #ifdef debug_tabs
@@ -2563,6 +2560,7 @@ static struct {
           win_maximise(win_is_fullscreen ? 0 : 2);
 
           term_schedule_search_update();
+	  win_update_tabbar();
           win_update_search();
         }
         when IDM_SCROLLBAR:
@@ -2789,7 +2787,7 @@ static struct {
                    RDW_FRAME | RDW_INVALIDATE |
                    RDW_UPDATENOW | RDW_ALLCHILDREN);
       win_update_search();
-
+      win_update_tabbar();
     when WM_FONTCHANGE:
       font_cs_reconfig(true);
 
@@ -5133,6 +5131,9 @@ main(int argc, char *argv[])
 
   win_synctabs(4);
   update_tab_titles();
+  if (cfg.show_tabbar) {
+    win_open_tabbar();
+  }
 
 #ifdef hook_keyboard
   // Install keyboard hook.
