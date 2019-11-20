@@ -190,6 +190,7 @@ typedef struct {
   string menu_menu;
   string menu_ctrlmenu;
   int geom_sync;
+  bool show_tabbar;
   int col_spacing, row_spacing;
   int padding;
   int ligatures_support;
@@ -208,7 +209,6 @@ typedef struct {
   int bloom;
   string old_options;
   bool old_xbuttons;
-  bool show_tabbar;
   // Legacy
   bool use_system_colours;
   bool old_bold;

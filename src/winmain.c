@@ -1860,9 +1860,11 @@ win_adapt_term_size(bool sync_size_with_font, bool scale_font_with_size)
   if (!sync_size_with_font && win_search_visible()) {
     term_height -= SEARCHBAR_HEIGHT;
   }
+
   if (!sync_size_with_font && win_tabbar_visible()) {
     term_height -= TABBAR_HEIGHT;
   }
+
   if (scale_font_with_size && term.cols != 0 && term.rows != 0) {
     // calc preliminary size (without font scaling), as below
     // should use term_height rather than rows; calc and store in term_resize
