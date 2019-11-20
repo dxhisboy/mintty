@@ -4,16 +4,17 @@
 #include <stdio.h>
 #include <string.h>
 int TABBAR_HEIGHT = 0;
-int prev_height = 0;
-HWND tab_wnd, bar_wnd;
+static int prev_height = 0;
+static HWND tab_wnd, bar_wnd;
 
 static HFONT tabbar_font;
 static bool initialized = false;
-int max_tab_width = 300;
-int min_tab_width = 20;
-int prev_tab_width = 0;
+static const int max_tab_width = 300;
+static const int min_tab_width = 20;
+static int prev_tab_width = 0;
+
 #define TABBARCLASS "Tabbar"
-extern void refresh_tab_titles(bool);
+
 extern struct tabinfo {
   unsigned long tag;
   HWND wnd;
@@ -21,7 +22,9 @@ extern struct tabinfo {
 } * tabinfo;
 extern int ntabinfo;
 
-int fit_title(HDC dc, int tab_width, wchar_t *title_in, wchar_t *title_out, int olen){
+static int
+fit_title(HDC dc, int tab_width, wchar_t *title_in, wchar_t *title_out, int olen)
+{
   int title_len = wcslen(title_in);
   SIZE text_size;
   GetTextExtentPoint32W(dc, title_in, title_len, &text_size);
@@ -47,7 +50,9 @@ int fit_title(HDC dc, int tab_width, wchar_t *title_in, wchar_t *title_out, int 
   return wcsnlen(title_out, olen);
 }
 
-void tabbar_update(){
+static void
+tabbar_update()
+{
   RECT tab_cr;
   GetClientRect(tab_wnd, &tab_cr);
   int win_width = tab_cr.right - tab_cr.left;
@@ -59,17 +64,18 @@ void tabbar_update(){
   int tab_width = (win_width - 2 * tab_height) / ntabinfo;
   tab_width = min(tab_width, max_tab_width);
   tab_width = max(tab_width, min_tab_width);
-
-  SendMessage(tab_wnd, TCM_SETMINTABWIDTH, 0, tab_width);
+  printf("width: %d %d %d\n", win_width, tab_width, ntabinfo);
+  SendMessage(tab_wnd, TCM_SETITEMSIZE, 0, tab_width | tab_height << 16);
   TCITEMW tie;
   tie.mask = TCIF_TEXT | TCIF_IMAGE | TCIF_PARAM;
   tie.iImage = -1;
   wchar_t title_fit[256];
   HDC tabdc = GetDC(tab_wnd);
+  SelectObject(tabdc, tabbar_font);
   tie.pszText = title_fit;
   SendMessage(tab_wnd, TCM_DELETEALLITEMS, 0, 0);
   //bool fg_ismintty = false;
-  for (int i = 0; i < ntabinfo; i ++){
+  for (int i = 0; i < ntabinfo; i ++) {
     fit_title(tabdc, tab_width, tabinfo[i].title, title_fit, 256);
     tie.lParam = (LPARAM)tabinfo[i].wnd;
     SendMessage(tab_wnd, TCM_INSERTITEMW, i, (LPARAM)&tie);
@@ -77,12 +83,14 @@ void tabbar_update(){
       SendMessage(tab_wnd, TCM_SETCURSEL, i, 0);
     }
   }
+  ReleaseDC(tab_wnd, tabdc);
 }
 
 // To prevent heavy flickers.
-LRESULT CALLBACK tab_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR uid, DWORD_PTR data)
+static LRESULT CALLBACK
+tab_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR uid, DWORD_PTR data)
 {
-  if (msg == WM_PAINT){
+  if (msg == WM_PAINT) {
     RECT rect;
     GetClientRect(hwnd, &rect);
     PAINTSTRUCT pnts;
@@ -102,10 +110,14 @@ LRESULT CALLBACK tab_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR ui
   }
   return DefSubclassProc(hwnd, msg, wp, lp);
 }
-LRESULT CALLBACK container_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp){
+
+// We need to make a container for the tabbar for handling WM_NOTIFY, also for further extensions
+static LRESULT CALLBACK
+container_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
+{
   printf("%p %p %p %p\n", &hwnd, &msg, &wp, &lp);
 
-  if (msg == WM_NOTIFY){
+  if (msg == WM_NOTIFY) {
     LPNMHDR lpnmhdr = (LPNMHDR)lp;
     printf("notify %lld %d %d\n", lpnmhdr->idFrom, lpnmhdr->code, TCN_SELCHANGE);
     if (lpnmhdr->code == TCN_SELCHANGE) {
@@ -114,68 +126,84 @@ LRESULT CALLBACK container_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp){
       tie.mask = TCIF_PARAM;
       SendMessage(tab_wnd, TCM_GETITEM, isel, (LPARAM)&tie);
       printf("%p\n", (void*)tie.lParam);
+      RECT rect_me;
+      GetWindowRect(wnd, &rect_me);
+      printf("%d %d %d %d\n", rect_me.left, rect_me.right, rect_me.top, rect_me.bottom);
+      ShowWindow((HWND)tie.lParam, SW_RESTORE);
+      //ShowWindow((HWND)tie.lParam, SW_SHOW);
       SetForegroundWindow((HWND)tie.lParam);
-      for (int i = 0; i < ntabinfo; i ++){
-	if (tabinfo[i].wnd == wnd)
-	  SendMessage(tab_wnd, TCM_SETCURSEL, i, 0);
+      SetWindowPos((HWND)tie.lParam, 0, rect_me.left, rect_me.top, rect_me.right - rect_me.left, rect_me.bottom - rect_me.top, SWP_SHOWWINDOW);
+      PostMessage((HWND)tie.lParam, WM_SIZE, 0, 0);
+      for (int i = 0; i < ntabinfo; i ++) {
+        if (tabinfo[i].wnd == wnd)
+          SendMessage(tab_wnd, TCM_SETCURSEL, i, 0);
       }
     }
   }
-  else if (msg == WM_CREATE){
+  else if (msg == WM_CREATE) {
     puts("create");
-    tab_wnd = CreateWindowExA(0, WC_TABCONTROL, "", WS_CHILD, 0, 0, 0, 0, hwnd, 0, inst, NULL);
+    tab_wnd = CreateWindowExA(0, WC_TABCONTROL, "", WS_CHILD|TCS_FIXEDWIDTH, 0, 0, 0, 0, hwnd, 0, inst, NULL);
     SetWindowSubclass(tab_wnd, tab_proc, 0, 0);
     tabbar_font = CreateFontW(cell_height, cell_width, 0, 0, FW_DONTCARE, false, false, false,
-			      DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-			      DEFAULT_QUALITY, FIXED_PITCH | FF_DONTCARE,
-			      cfg.font.name);
+                              DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                              DEFAULT_QUALITY, FIXED_PITCH | FF_DONTCARE,
+                              cfg.font.name);
     SendMessage(tab_wnd, WM_SETFONT, (WPARAM)tabbar_font, 1);
-
   }
   else if (msg == WM_SHOWWINDOW) {
-    if (wp){
+    if (wp) {
       printf("show %p\n", bar_wnd);
       ShowWindow(tab_wnd, SW_SHOW);
       tabbar_update();
     }
     //return true;
   }
-  else if (msg == WM_SIZE){
-    printf("size %lld %lld\n", lp & 0xffff, lp >> 16);
-    SetWindowPos(tab_wnd, 0,
-		 0, 0,
-		 lp & 0xffff, lp >> 16,
-		 SWP_NOZORDER);
+  else if (msg == WM_SIZE) {
+    tabbar_font = CreateFontW(cell_height, cell_width, 0, 0, FW_DONTCARE, false, false, false,
+                              DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                              DEFAULT_QUALITY, FIXED_PITCH | FF_DONTCARE,
+                              cfg.font.name);
+    SendMessage(tab_wnd, WM_SETFONT, (WPARAM)tabbar_font, 1);
 
+    SetWindowPos(tab_wnd, 0,
+                 0, 0,
+                 lp & 0xffff, lp >> 16,
+                 SWP_NOZORDER);
+    tabbar_update();
   }
+
   return CallWindowProc(DefWindowProc, hwnd, msg, wp, lp);
 }
-void
+
+static void
 tabbar_init()
 {
-  RegisterClassA(&(WNDCLASSA){
+  RegisterClassA(&(WNDCLASSA) {
       .style = 0,
-				.lpfnWndProc = container_proc,
-				.cbClsExtra = 0,
-				.cbWndExtra = 0,
-				.hInstance = inst,
-				.hIcon = NULL,
-				.hCursor = NULL,
-				.hbrBackground = NULL, //(HBRUSH)(COLOR_3DFACE + 1),
-				.lpszMenuName = NULL,
-				.lpszClassName = TABBARCLASS
-				});
-  bar_wnd = CreateWindowExA(0, TABBARCLASS, "", WS_CHILD|TCS_FIXEDWIDTH, 0, 0, 0, 0, wnd, 0, inst, NULL);
+                                .lpfnWndProc = container_proc,
+                                .cbClsExtra = 0,
+                                .cbWndExtra = 0,
+                                .hInstance = inst,
+                                .hIcon = NULL,
+                                .hCursor = NULL,
+                                .hbrBackground = NULL, //(HBRUSH)(COLOR_3DFACE + 1),
+                                .lpszMenuName = NULL,
+                                .lpszClassName = TABBARCLASS
+                                });
+  bar_wnd = CreateWindowExA(0, TABBARCLASS, "", WS_CHILD, 0, 0, 0, 0, wnd, 0, inst, NULL);
 
   initialized = true;
 }
-void
-tabbar_destroy(){
+
+static void
+tabbar_destroy()
+{
   DestroyWindow(tab_wnd);
   DestroyWindow(bar_wnd);
   initialized = false;
 }
-void
+
+static void
 win_toggle_tabbar(bool show)
 {
   puts("toggle");
@@ -193,18 +221,15 @@ win_toggle_tabbar(bool show)
     tabbar_init();
   }
   prev_height = height;
-
-  if (!initialized) {
-    tabbar_init();
-  }
-  if (show){
+  tabbar_update();
+  if (show) {
     show = show;
     TABBAR_HEIGHT = height + padding * 2;
     printf("nweheight");
     SetWindowPos(bar_wnd, 0,
-		 cr.left, 0,
-		 width, height + padding * 2,
-		 SWP_NOZORDER);
+                 cr.left, 0,
+                 width, height + padding * 2,
+                 SWP_NOZORDER);
     ShowWindow(bar_wnd, SW_SHOW);
   } else {
     TABBAR_HEIGHT = 0;
@@ -212,21 +237,29 @@ win_toggle_tabbar(bool show)
     ShowWindow(bar_wnd, SW_HIDE);
   }
 }
-bool win_tabbar_visible(){
+
+bool win_tabbar_visible()
+{
   return TABBAR_HEIGHT > 0;//IsWindowVisible(bar_wnd);
 }
+
 void
-win_update_tabbar(){
-  if (win_tabbar_visible()){
+win_update_tabbar()
+{
+  if (win_tabbar_visible()) {
     win_toggle_tabbar(true);
   }
 }
+
 void
-win_open_tabbar(){
+win_open_tabbar()
+{
   SendMessage(wnd, WM_USER, 0, 4);
   win_toggle_tabbar(true);
 }
+
 void
-win_close_tabbar(){
+win_close_tabbar()
+{
   win_toggle_tabbar(false);
 }

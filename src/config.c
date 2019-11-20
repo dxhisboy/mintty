@@ -190,6 +190,7 @@ const config default_cfg = {
   .menu_menu = "bs",
   .menu_ctrlmenu = "e|ls",
   .geom_sync = 0,
+  .show_tabbar = false,
   .col_spacing = 0,
   .row_spacing = 0,
   .padding = 1,
@@ -227,8 +228,7 @@ const config default_cfg = {
   .baud = 0,
   .bloom = 0,
   .old_xbuttons = false,
-  .old_options = "",
-  .show_tabbar = false
+  .old_options = ""
 };
 
 config cfg, new_cfg, file_cfg;
@@ -441,6 +441,7 @@ options[] = {
   {"MenuMenu", OPT_STRING, offcfg(menu_menu)},
   {"MenuCtrlMenu", OPT_STRING, offcfg(menu_ctrlmenu)},
   {"SessionGeomSync", OPT_INT, offcfg(geom_sync)},
+  {"ShowTabBar", OPT_BOOL, offcfg(show_tabbar)},
   {"ColSpacing", OPT_INT, offcfg(col_spacing)},
   {"RowSpacing", OPT_INT, offcfg(row_spacing)},
   {"Padding", OPT_INT, offcfg(padding)},
@@ -460,8 +461,7 @@ options[] = {
   {"Bloom", OPT_INT, offcfg(bloom)},
   {"OldXButtons", OPT_BOOL, offcfg(old_xbuttons)},
   {"OldOptions", OPT_STRING, offcfg(old_options)},
-  {"ShowTabBar", OPT_BOOL, offcfg(show_tabbar)},
-  
+
   // ANSI colours
   {"Black", OPT_COLOUR, offcfg(ansi_colours[BLACK_I])},
   {"Red", OPT_COLOUR, offcfg(ansi_colours[RED_I])},
