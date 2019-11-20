@@ -62,8 +62,8 @@ void tabbar_update(){
 
   SendMessage(tab_wnd, TCM_SETMINTABWIDTH, 0, tab_width);
   TCITEMW tie;
-  tie.mask = TCIF_TEXT | TCIF_IMAGE | TCIF_PARAM; 
-  tie.iImage = -1; 
+  tie.mask = TCIF_TEXT | TCIF_IMAGE | TCIF_PARAM;
+  tie.iImage = -1;
   wchar_t title_fit[256];
   HDC tabdc = GetDC(tab_wnd);
   tie.pszText = title_fit;
@@ -82,7 +82,7 @@ void tabbar_update(){
 // To prevent heavy flickers.
 LRESULT CALLBACK tab_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR uid, DWORD_PTR data)
 {
-  if (msg == WM_PAINT){    
+  if (msg == WM_PAINT){
     RECT rect;
     GetClientRect(hwnd, &rect);
     PAINTSTRUCT pnts;
@@ -104,7 +104,7 @@ LRESULT CALLBACK tab_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR ui
 }
 LRESULT CALLBACK container_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp){
   printf("%p %p %p %p\n", &hwnd, &msg, &wp, &lp);
-  
+
   if (msg == WM_NOTIFY){
     LPNMHDR lpnmhdr = (LPNMHDR)lp;
     printf("notify %lld %d %d\n", lpnmhdr->idFrom, lpnmhdr->code, TCN_SELCHANGE);
