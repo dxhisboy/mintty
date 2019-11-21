@@ -1,5 +1,7 @@
 #include "winpriv.h"
 #include "Commctrl.h"
+#include <uxtheme.h>
+#include <vssym32.h>
 #include <windowsx.h>
 #include <stdio.h>
 #include <string.h>
@@ -107,6 +109,8 @@ tab_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR uid, DWORD_PTR data
     return true || uid || data;
   } else if (msg == WM_ERASEBKGND) {
     if (!lp) return true;
+  } else if (msg == WM_DRAWITEM) {
+    printf("Received drawitem");
   }
   return DefSubclassProc(hwnd, msg, wp, lp);
 }
@@ -142,9 +146,9 @@ container_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
   }
   else if (msg == WM_CREATE) {
     puts("create");
-    tab_wnd = CreateWindowExA(0, WC_TABCONTROL, "", WS_CHILD|TCS_FIXEDWIDTH, 0, 0, 0, 0, hwnd, 0, inst, NULL);
+    tab_wnd = CreateWindowExA(0, WC_TABCONTROL, "", WS_CHILD|TCS_FIXEDWIDTH|TCS_OWNERDRAWFIXED, 0, 0, 0, 0, hwnd, 0, inst, NULL);
     SetWindowSubclass(tab_wnd, tab_proc, 0, 0);
-    tabbar_font = CreateFontW(cell_height, cell_width, 0, 0, FW_DONTCARE, false, false, false,
+    tabbar_font = CreateFontW(cell_height * 4 / 5, cell_width * 4 / 5, 0, 0, FW_DONTCARE, false, false, false,
                               DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                               DEFAULT_QUALITY, FIXED_PITCH | FF_DONTCARE,
                               cfg.font.name);
@@ -159,7 +163,7 @@ container_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     //return true;
   }
   else if (msg == WM_SIZE) {
-    tabbar_font = CreateFontW(cell_height, cell_width, 0, 0, FW_DONTCARE, false, false, false,
+    tabbar_font = CreateFontW(cell_height * 4 / 5, cell_width * 4 / 5, 0, 0, FW_DONTCARE, false, false, false,
                               DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                               DEFAULT_QUALITY, FIXED_PITCH | FF_DONTCARE,
                               cfg.font.name);
@@ -170,6 +174,27 @@ container_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
                  lp & 0xffff, lp >> 16,
                  SWP_NOZORDER);
     tabbar_update();
+  } else if (msg == WM_DRAWITEM) {
+    LPDRAWITEMSTRUCT dis = (LPDRAWITEMSTRUCT)lp;
+    HDC hdc = dis->hDC;
+    printf("Container Received drawitem %llx %p\n", wp, dis);
+    int hcenter = (dis->rcItem.left + dis->rcItem.right) / 2;
+    int vcenter = (dis->rcItem.top + dis->rcItem.bottom) / 2;
+
+    SetTextAlign(hdc, TA_CENTER|TA_TOP);
+    TCITEMW tie;
+    wchar_t buf[256];
+    tie.mask = TCIF_TEXT;
+    tie.pszText = buf;
+    tie.cchTextMax = 256;
+    SendMessage(tab_wnd, TCM_GETITEMW, dis->itemID, (LPARAM)&tie);
+    if (tabinfo[dis->itemID].wnd == wnd){
+      FillRect(hdc, &dis->rcItem, GetSysColorBrush(COLOR_ACTIVECAPTION));
+    } else {
+      FillRect(hdc, &dis->rcItem, GetSysColorBrush(COLOR_3DFACE));
+    }
+    SetBkMode(hdc, TRANSPARENT);
+    TextOutW(hdc, hcenter, vcenter - cell_height / 3, tie.pszText, wcslen(tie.pszText));
   }
 
   return CallWindowProc(DefWindowProc, hwnd, msg, wp, lp);
@@ -190,7 +215,7 @@ tabbar_init()
                                 .lpszMenuName = NULL,
                                 .lpszClassName = TABBARCLASS
                                 });
-  bar_wnd = CreateWindowExA(0, TABBARCLASS, "", WS_CHILD, 0, 0, 0, 0, wnd, 0, inst, NULL);
+  bar_wnd = CreateWindowExA(WS_EX_STATICEDGE, TABBARCLASS, "", WS_CHILD|WS_BORDER, 0, 0, 0, 0, wnd, 0, inst, NULL);
 
   initialized = true;
 }
