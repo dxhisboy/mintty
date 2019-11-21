@@ -1,7 +1,7 @@
 #include "winpriv.h"
 #include "Commctrl.h"
-#include <uxtheme.h>
-#include <vssym32.h>
+//#include <uxtheme.h>
+//#include <vssym32.h>
 #include <windowsx.h>
 #include <stdio.h>
 #include <string.h>
