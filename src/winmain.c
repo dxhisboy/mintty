@@ -767,6 +767,25 @@ win_restore_title(void)
   }
 }
 
+void
+win_post_sync_message(HWND target)
+{
+  if (cfg.geom_sync) {
+    if (win_is_fullscreen)
+      PostMessage(target, WM_USER, 0, WIN_MAXIMIZE);
+    else {
+      RECT r;
+      GetWindowRect(wnd, &r);
+#ifdef debug_tabs
+      printf("switcher %d,%d %d,%d\n", (int)r.left, (int)r.top, (int)(r.right - r.left), (int)(r.bottom - r.top));
+#endif
+      PostMessage(target, WM_USER,
+                  MAKEWPARAM(r.right - r.left, r.bottom - r.top),
+                  MAKELPARAM(r.left, r.top));
+    }
+  }
+}
+
 /*
  *  Switch to next or previous application window in z-order
  */
@@ -874,6 +893,7 @@ win_switch(bool back, bool alternate)
 #else
   refresh_tab_titles(false);
   win_to_top(back ? get_prev_tab(alternate) : get_next_tab(alternate));
+  win_post_sync_message(back ? get_prev_tab(alternate) : get_next_tab(alternate));
   win_update_tabbar();
 #endif
 }
@@ -915,7 +935,6 @@ get_tab(uint tabi)
   else
     return 0;
 }
-
 
 static void
 win_gotab(uint n)

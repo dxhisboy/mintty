@@ -141,6 +141,7 @@ container_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
       //if (IsIconic((HWND)tie.lParam))
       //ShowWindow((HWND)tie.lParam, SW_RESTORE);
       win_to_top((HWND)tie.lParam);
+      win_post_sync_message((HWND)tie.lParam);
       //SetForegroundWindow((HWND)tie.lParam);
       /* SetWindowPos((HWND)tie.lParam, 0, rect_me.left, rect_me.top, rect_me.right - rect_me.left, rect_me.bottom - rect_me.top, SWP_SHOWWINDOW); */
       //PostMessage((HWND)tie.lParam, WM_SIZE, 0, 0);
