@@ -767,25 +767,7 @@ win_restore_title(void)
   }
 }
 
-void
-win_post_sync_message(HWND target)
-{
-  if (cfg.geom_sync) {
-    if (win_is_fullscreen)
-      PostMessage(target, WM_USER, 0, WIN_MAXIMIZE);
-    else {
-      RECT r;
-      GetWindowRect(wnd, &r);
-#ifdef debug_tabs
-      printf("switcher %d,%d %d,%d\n", (int)r.left, (int)r.top, (int)(r.right - r.left), (int)(r.bottom - r.top));
-#endif
-      PostMessage(target, WM_USER,
-                  MAKEWPARAM(r.right - r.left, r.bottom - r.top),
-                  MAKELPARAM(r.left, r.top));
-    }
-  }
-}
-
+static int handling_sync_msg = false;
 /*
  *  Switch to next or previous application window in z-order
  */
@@ -893,7 +875,9 @@ win_switch(bool back, bool alternate)
 #else
   refresh_tab_titles(false);
   win_to_top(back ? get_prev_tab(alternate) : get_next_tab(alternate));
-  win_post_sync_message(back ? get_prev_tab(alternate) : get_next_tab(alternate));
+  if (cfg.geom_sync) {
+    win_post_sync_msg(back ? get_prev_tab(alternate) : get_next_tab(alternate));
+  }
   win_update_tabbar();
 #endif
 }
@@ -944,23 +928,9 @@ win_gotab(uint n)
   // apparently, we don't have to fiddle with SetWindowPos as in win_switch
 
   win_to_top(tab);
-
-  // reposition / resize
   if (cfg.geom_sync) {
-    if (win_is_fullscreen)
-      PostMessage(tab, WM_USER, 0, WIN_MAXIMIZE);
-    else {
-      RECT r;
-      GetWindowRect(wnd, &r);
-#ifdef debug_tabs
-      printf("switcher %d,%d %d,%d\n", (int)r.left, (int)r.top, (int)(r.right - r.left), (int)(r.bottom - r.top));
-#endif
-      PostMessage(tab, WM_USER,
-                  MAKEWPARAM(r.right - r.left, r.bottom - r.top),
-                  MAKELPARAM(r.left, r.top));
-    }
+    win_post_sync_msg(tab);
   }
-
   if (tab == wnd)
     // avoid hiding when switching to myself
     return;
@@ -978,32 +948,20 @@ win_gotab(uint n)
 #endif
 }
 
-static void
+void
 win_synctabs(int level)
 {
   BOOL CALLBACK wnd_enum_tabs(HWND curr_wnd, LPARAM lp)
   {
-    int level = (int)lp;
-
+    //int level = (int)lp;
+    //printf("%lld\n", lp);
+    lp ++;
     WINDOWINFO curr_wnd_info;
     curr_wnd_info.cbSize = sizeof(WINDOWINFO);
     GetWindowInfo(curr_wnd, &curr_wnd_info);
     if (class_atom == curr_wnd_info.atomWindowType) {
       if (curr_wnd != wnd) {
-        if (win_is_fullscreen)
-          PostMessage(curr_wnd, WM_USER, 0, WIN_MAXIMIZE);
-        else if (level == 3) // minimize
-          PostMessage(curr_wnd, WM_USER, 0, WIN_MINIMIZE);
-        else {
-          RECT r;
-          GetWindowRect(wnd, &r);
-#ifdef debug_tabs
-          printf("sync all %d,%d %d,%d\n", (int)r.left, (int)r.top, (int)(r.right - r.left), (int)(r.bottom - r.top));
-#endif
-          PostMessage(curr_wnd, WM_USER,
-                      MAKEWPARAM(r.right - r.left, r.bottom - r.top),
-                      MAKELPARAM(r.left, r.top));
-        }
+	win_post_sync_msg(curr_wnd);
       }
     }
     return true;
@@ -1609,6 +1567,7 @@ win_fix_position(void)
                SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
+
 void
 win_set_chars(int rows, int cols)
 {
@@ -1986,6 +1945,51 @@ win_maximise(int max)
     else
       ShowWindow(wnd, SW_MAXIMIZE);
   }
+}
+
+void
+win_post_sync_msg(HWND target)
+{
+  if (handling_sync_msg) return;
+  puts("post");
+  if (cfg.geom_sync) {
+    if (win_is_fullscreen)
+      PostMessage(target, WM_USER, 0, WIN_MAXIMIZE);
+    else if (IsIconic(wnd))
+      PostMessage(target, WM_USER, 0, WIN_MINIMIZE);
+    else {
+      RECT r;
+      GetWindowRect(wnd, &r);
+#ifdef debug_tabs
+      printf("switcher %d,%d %d,%d\n", (int)r.left, (int)r.top, (int)(r.right - r.left), (int)(r.bottom - r.top));
+#endif
+      PostMessage(target, WM_USER,
+                  MAKEWPARAM(r.right - r.left, r.bottom - r.top),
+                  MAKELPARAM(r.left, r.top));
+    }
+  }
+}
+void
+win_handle_sync_msg(WPARAM wp, LPARAM lp) {
+  handling_sync_msg = true;
+  puts("handle");
+  if (!wp) {
+    if (lp == WIN_MINIMIZE && cfg.geom_sync >= 3)
+      ShowWindow(wnd, SW_MINIMIZE);
+    else if (lp == WIN_MAXIMIZE && cfg.geom_sync)
+      win_maximise(2);
+  }
+  else if (cfg.geom_sync) {
+    if (win_is_fullscreen)
+      clear_fullscreen();
+    // (INT16) to handle multi-monitor negative coordinates properly
+    SetWindowPos(wnd, null,
+		 //GET_X_LPARAM(lp), GET_Y_LPARAM(lp),
+		 (INT16)LOWORD(lp), (INT16)HIWORD(lp),
+		 LOWORD(wp), HIWORD(wp),
+		 SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOACTIVATE);
+  }
+  handling_sync_msg = false;
 }
 
 /*
@@ -2484,22 +2488,23 @@ static struct {
 #ifdef debug_tabs
         printf("switched %d,%d %d,%d\n", (INT16)LOWORD(lp), (INT16)HIWORD(lp), LOWORD(wp), HIWORD(wp));
 #endif
-        if (!wp) {
-          if (lp == WIN_MINIMIZE && cfg.geom_sync >= 3)
-            ShowWindow(wnd, SW_MINIMIZE);
-          else if (lp == WIN_MAXIMIZE && cfg.geom_sync)
-            win_maximise(2);
-        }
-        else if (cfg.geom_sync) {
-          if (win_is_fullscreen)
-            clear_fullscreen();
-          // (INT16) to handle multi-monitor negative coordinates properly
-          SetWindowPos(wnd, null,
-                       //GET_X_LPARAM(lp), GET_Y_LPARAM(lp),
-                       (INT16)LOWORD(lp), (INT16)HIWORD(lp),
-                       LOWORD(wp), HIWORD(wp),
-                       SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOACTIVATE);
-        }
+	win_handle_sync_msg(wp, lp);
+        /* if (!wp) { */
+        /*   if (lp == WIN_MINIMIZE && cfg.geom_sync >= 3) */
+        /*     ShowWindow(wnd, SW_MINIMIZE); */
+        /*   else if (lp == WIN_MAXIMIZE && cfg.geom_sync) */
+        /*     win_maximise(2); */
+        /* } */
+        /* else if (cfg.geom_sync) { */
+        /*   if (win_is_fullscreen) */
+        /*     clear_fullscreen(); */
+        /*   // (INT16) to handle multi-monitor negative coordinates properly */
+        /*   SetWindowPos(wnd, null, */
+        /*                //GET_X_LPARAM(lp), GET_Y_LPARAM(lp), */
+        /*                (INT16)LOWORD(lp), (INT16)HIWORD(lp), */
+        /*                LOWORD(wp), HIWORD(wp), */
+        /*                SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOACTIVATE); */
+        /* } */
       }
 
     when WM_COMMAND or WM_SYSCOMMAND: {

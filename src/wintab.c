@@ -66,7 +66,7 @@ tabbar_update()
   int tab_width = (win_width - 2 * tab_height) / ntabinfo;
   tab_width = min(tab_width, max_tab_width);
   tab_width = max(tab_width, min_tab_width);
-  printf("width: %d %d %d\n", win_width, tab_width, ntabinfo);
+  //printf("width: %d %d %d\n", win_width, tab_width, ntabinfo);
   SendMessage(tab_wnd, TCM_SETITEMSIZE, 0, tab_width | tab_height << 16);
   TCITEMW tie;
   tie.mask = TCIF_TEXT | TCIF_IMAGE | TCIF_PARAM;
@@ -110,7 +110,7 @@ tab_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR uid, DWORD_PTR data
   } else if (msg == WM_ERASEBKGND) {
     if (!lp) return true;
   } else if (msg == WM_DRAWITEM) {
-    printf("Received drawitem");
+    //printf("Received drawitem");
   }
   return DefSubclassProc(hwnd, msg, wp, lp);
 }
@@ -119,20 +119,20 @@ tab_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR uid, DWORD_PTR data
 static LRESULT CALLBACK
 container_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
-  printf("%p %p %p %p\n", &hwnd, &msg, &wp, &lp);
+  //printf("%p %p %p %p\n", &hwnd, &msg, &wp, &lp);
 
   if (msg == WM_NOTIFY) {
     LPNMHDR lpnmhdr = (LPNMHDR)lp;
-    printf("notify %lld %d %d\n", lpnmhdr->idFrom, lpnmhdr->code, TCN_SELCHANGE);
+    //printf("notify %lld %d %d\n", lpnmhdr->idFrom, lpnmhdr->code, TCN_SELCHANGE);
     if (lpnmhdr->code == TCN_SELCHANGE) {
       int isel = SendMessage(tab_wnd, TCM_GETCURSEL, 0, 0);
       TCITEMW tie;
       tie.mask = TCIF_PARAM;
       SendMessage(tab_wnd, TCM_GETITEM, isel, (LPARAM)&tie);
-      printf("%p\n", (void*)tie.lParam);
+      //printf("%p\n", (void*)tie.lParam);
       RECT rect_me;
       GetWindowRect(wnd, &rect_me);
-      printf("%d %d %d %d\n", rect_me.left, rect_me.right, rect_me.top, rect_me.bottom);
+      //printf("%d %d %d %d\n", rect_me.left, rect_me.right, rect_me.top, rect_me.bottom);
       //ShowWindow((HWND)tie.lParam, SW_RESTORE);
       //ShowWindow((HWND)tie.lParam, SW_SHOW);
       //SetForegroundWindow((HWND)tie.lParam);
@@ -141,7 +141,8 @@ container_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
       //if (IsIconic((HWND)tie.lParam))
       //ShowWindow((HWND)tie.lParam, SW_RESTORE);
       win_to_top((HWND)tie.lParam);
-      win_post_sync_message((HWND)tie.lParam);
+      if (cfg.geom_sync)
+	win_post_sync_msg((HWND)tie.lParam);
       //SetForegroundWindow((HWND)tie.lParam);
       /* SetWindowPos((HWND)tie.lParam, 0, rect_me.left, rect_me.top, rect_me.right - rect_me.left, rect_me.bottom - rect_me.top, SWP_SHOWWINDOW); */
       //PostMessage((HWND)tie.lParam, WM_SIZE, 0, 0);
@@ -163,7 +164,7 @@ container_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
   }
   else if (msg == WM_SHOWWINDOW) {
     if (wp) {
-      printf("show %p\n", bar_wnd);
+      //printf("show %p\n", bar_wnd);
       ShowWindow(tab_wnd, SW_SHOW);
       tabbar_update();
     }
@@ -184,7 +185,7 @@ container_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
   } else if (msg == WM_DRAWITEM) {
     LPDRAWITEMSTRUCT dis = (LPDRAWITEMSTRUCT)lp;
     HDC hdc = dis->hDC;
-    printf("Container Received drawitem %llx %p\n", wp, dis);
+    //printf("Container Received drawitem %llx %p\n", wp, dis);
     int hcenter = (dis->rcItem.left + dis->rcItem.right) / 2;
     int vcenter = (dis->rcItem.top + dis->rcItem.bottom) / 2;
 
@@ -257,7 +258,7 @@ win_toggle_tabbar(bool show)
   if (show) {
     show = show;
     TABBAR_HEIGHT = height + padding * 2;
-    printf("nweheight");
+    //printf("nweheight");
     SetWindowPos(bar_wnd, 0,
                  cr.left, 0,
                  width, height + padding * 2,
