@@ -4403,7 +4403,7 @@ win_paint(void)
 
     ExcludeClipRect(dc, PADDING, PADDING,
                     PADDING + cell_width * term.cols,
-                    PADDING + cell_height * term.rows);
+                    PADDING + cell_height * term.rows + TABBAR_HEIGHT);
 
     Rectangle(dc, p.rcPaint.left, p.rcPaint.top,
                   p.rcPaint.right, p.rcPaint.bottom);
