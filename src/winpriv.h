@@ -105,6 +105,7 @@ extern wstring wslicon(wchar * params);
 
 extern char * foreground_cwd(void);
 
+extern void win_to_top(HWND top_wnd);
 extern void win_switch(bool back, bool alternate);
 extern int search_monitors(int * minx, int * miny, HMONITOR lookup_mon, int get_primary, MONITORINFO *mip);
 

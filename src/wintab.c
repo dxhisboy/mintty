@@ -133,11 +133,17 @@ container_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
       RECT rect_me;
       GetWindowRect(wnd, &rect_me);
       printf("%d %d %d %d\n", rect_me.left, rect_me.right, rect_me.top, rect_me.bottom);
-      ShowWindow((HWND)tie.lParam, SW_RESTORE);
+      //ShowWindow((HWND)tie.lParam, SW_RESTORE);
       //ShowWindow((HWND)tie.lParam, SW_SHOW);
-      SetForegroundWindow((HWND)tie.lParam);
-      SetWindowPos((HWND)tie.lParam, 0, rect_me.left, rect_me.top, rect_me.right - rect_me.left, rect_me.bottom - rect_me.top, SWP_SHOWWINDOW);
-      PostMessage((HWND)tie.lParam, WM_SIZE, 0, 0);
+      //SetForegroundWindow((HWND)tie.lParam);
+  // SetActiveWindow(top_wnd);
+
+      //if (IsIconic((HWND)tie.lParam))
+      //ShowWindow((HWND)tie.lParam, SW_RESTORE);
+      win_to_top((HWND)tie.lParam);
+      //SetForegroundWindow((HWND)tie.lParam);
+      /* SetWindowPos((HWND)tie.lParam, 0, rect_me.left, rect_me.top, rect_me.right - rect_me.left, rect_me.bottom - rect_me.top, SWP_SHOWWINDOW); */
+      //PostMessage((HWND)tie.lParam, WM_SIZE, 0, 0);
       for (int i = 0; i < ntabinfo; i ++) {
         if (tabinfo[i].wnd == wnd)
           SendMessage(tab_wnd, TCM_SETCURSEL, i, 0);
@@ -189,7 +195,7 @@ container_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     tie.cchTextMax = 256;
     SendMessage(tab_wnd, TCM_GETITEMW, dis->itemID, (LPARAM)&tie);
     if (tabinfo[dis->itemID].wnd == wnd){
-      FillRect(hdc, &dis->rcItem, GetSysColorBrush(COLOR_ACTIVECAPTION));
+      FillRect(hdc, &dis->rcItem, GetSysColorBrush(COLOR_GRADIENTACTIVECAPTION));
     } else {
       FillRect(hdc, &dis->rcItem, GetSysColorBrush(COLOR_3DFACE));
     }
@@ -281,10 +287,12 @@ win_open_tabbar()
 {
   SendMessage(wnd, WM_USER, 0, 4);
   win_toggle_tabbar(true);
+  win_adapt_term_size(false, false);
 }
 
 void
 win_close_tabbar()
 {
   win_toggle_tabbar(false);
+  win_adapt_term_size(false, false);
 }

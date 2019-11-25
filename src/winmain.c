@@ -771,7 +771,7 @@ win_restore_title(void)
  *  Switch to next or previous application window in z-order
  */
 
-static void
+void
 win_to_top(HWND top_wnd)
 {
   // this would block if target window is blocked:
@@ -832,9 +832,6 @@ wnd_enum_proc(HWND curr_wnd, LPARAM unused(lp))
 }
 #endif
 
-/*
-   Cycle mintty windows. Skip iconized windows, unless second parameter true.
- */
 void
 win_switch(bool back, bool alternate)
 {
@@ -876,8 +873,8 @@ win_switch(bool back, bool alternate)
   }
 #else
   refresh_tab_titles(false);
-  win_update_tabbar();
   win_to_top(back ? get_prev_tab(alternate) : get_next_tab(alternate));
+  win_update_tabbar();
 #endif
 }
 
@@ -1338,6 +1335,7 @@ win_get_pixels(int *height_p, int *width_p, bool with_borders)
   else {
     GetClientRect(wnd, &r);
     int sy = win_search_visible() ? SEARCHBAR_HEIGHT : 0;
+    if (win_tabbar_visible()) sy += TABBAR_HEIGHT;
     *height_p = r.bottom - r.top - 2 * PADDING - sy
               //- extra_height
               ;
@@ -1368,6 +1366,7 @@ win_set_pixels(int height, int width)
     return;
 
   int sy = win_search_visible() ? SEARCHBAR_HEIGHT : 0;
+  if (win_tabbar_visible()) sy += TABBAR_HEIGHT;
   SetWindowPos(wnd, null, 0, 0,
                width + extra_width + 2 * PADDING,
                height + extra_height + 2 * PADDING + sy,
@@ -2828,6 +2827,8 @@ static struct {
       }
       win_update_transparency(cfg.opaque_when_focused);
       win_key_reset();
+      win_adapt_term_size(false, false);
+
 
     when WM_SETFOCUS:
       trace_resize(("# WM_SETFOCUS VK_SHIFT %02X\n", (uchar)GetKeyState(VK_SHIFT)));
@@ -2899,7 +2900,6 @@ static struct {
 
       return ew || eh;
     }
-
     when WM_SIZE: {
       trace_resize(("# WM_SIZE (resizing %d) VK_SHIFT %02X\n", resizing, (uchar)GetKeyState(VK_SHIFT)));
       if (wp == SIZE_RESTORED && win_is_fullscreen)
