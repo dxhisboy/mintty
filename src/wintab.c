@@ -16,7 +16,7 @@ static const int min_tab_width = 20;
 static int prev_tab_width = 0;
 
 #define TABBARCLASS "Tabbar"
-
+#define TABFONTSCALE 9/10
 extern struct tabinfo {
   unsigned long tag;
   HWND wnd;
@@ -156,7 +156,7 @@ container_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     puts("create");
     tab_wnd = CreateWindowExA(0, WC_TABCONTROL, "", WS_CHILD|TCS_FIXEDWIDTH|TCS_OWNERDRAWFIXED, 0, 0, 0, 0, hwnd, 0, inst, NULL);
     SetWindowSubclass(tab_wnd, tab_proc, 0, 0);
-    tabbar_font = CreateFontW(cell_height * 4 / 5, cell_width * 4 / 5, 0, 0, FW_DONTCARE, false, false, false,
+    tabbar_font = CreateFontW(cell_height * TABFONTSCALE, cell_width * TABFONTSCALE, 0, 0, FW_DONTCARE, false, false, false,
                               DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                               DEFAULT_QUALITY, FIXED_PITCH | FF_DONTCARE,
                               cfg.font.name);
@@ -171,7 +171,7 @@ container_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     //return true;
   }
   else if (msg == WM_SIZE) {
-    tabbar_font = CreateFontW(cell_height * 4 / 5, cell_width * 4 / 5, 0, 0, FW_DONTCARE, false, false, false,
+    tabbar_font = CreateFontW(cell_height * TABFONTSCALE, cell_width * TABFONTSCALE, 0, 0, FW_DONTCARE, false, false, false,
                               DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                               DEFAULT_QUALITY, FIXED_PITCH | FF_DONTCARE,
                               cfg.font.name);

@@ -88,6 +88,7 @@ static bool moving = false;
 static bool disable_poschange = true;
 static int zoom_token = 0;  // for heuristic handling of Shift zoom (#467, #476)
 static bool default_size_token = false;
+static bool dont_post_sync_msg = true;
 bool clipboard_token = false;
 
 // Inter-window actions
@@ -96,6 +97,7 @@ enum {
   WIN_MAXIMIZE = -1,
   WIN_TOP = 1,
   WIN_TITLE = 4,
+  WIN_INIT_POS = 5
 };
 
 // Options
@@ -767,7 +769,6 @@ win_restore_title(void)
   }
 }
 
-static int handling_sync_msg = false;
 /*
  *  Switch to next or previous application window in z-order
  */
@@ -971,6 +972,28 @@ win_synctabs(int level)
     EnumWindows(wnd_enum_tabs, (LPARAM)level);
 }
 
+void
+win_init_position() {
+  BOOL CALLBACK wnd_call_sync(HWND curr_wnd, LPARAM lp)
+  {
+    lp ++;
+    WINDOWINFO curr_wnd_info;
+    curr_wnd_info.cbSize = sizeof(WINDOWINFO);
+    GetWindowInfo(curr_wnd, &curr_wnd_info);
+    if (class_atom == curr_wnd_info.atomWindowType) {
+      if (curr_wnd != wnd && !IsIconic(curr_wnd)) {
+	PostMessage(curr_wnd, WM_USER, 0, WIN_INIT_POS);
+	return false;
+      }
+    }
+    return true;
+  }
+  if (cfg.geom_sync == 4) {
+    if (EnumWindows(wnd_call_sync, (LPARAM)4)){
+      win_synctabs(4);
+    }
+  }
+}
 
 /*
  *  Monitor-related window functions
@@ -1950,7 +1973,7 @@ win_maximise(int max)
 void
 win_post_sync_msg(HWND target)
 {
-  if (handling_sync_msg) return;
+  if (dont_post_sync_msg) return;
   puts("post");
   if (cfg.geom_sync) {
     if (win_is_fullscreen)
@@ -1971,7 +1994,8 @@ win_post_sync_msg(HWND target)
 }
 void
 win_handle_sync_msg(WPARAM wp, LPARAM lp) {
-  handling_sync_msg = true;
+  bool supressed = dont_post_sync_msg;
+  dont_post_sync_msg = true;
   puts("handle");
   if (!wp) {
     if (lp == WIN_MINIMIZE && cfg.geom_sync >= 3)
@@ -1989,7 +2013,7 @@ win_handle_sync_msg(WPARAM wp, LPARAM lp) {
 		 LOWORD(wp), HIWORD(wp),
 		 SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOACTIVATE);
   }
-  handling_sync_msg = false;
+  dont_post_sync_msg = supressed;
 }
 
 /*
@@ -2488,7 +2512,11 @@ static struct {
 #ifdef debug_tabs
         printf("switched %d,%d %d,%d\n", (INT16)LOWORD(lp), (INT16)HIWORD(lp), LOWORD(wp), HIWORD(wp));
 #endif
-	win_handle_sync_msg(wp, lp);
+	if (!wp && lp == WIN_INIT_POS) {
+	  win_synctabs(4);
+	} else {
+	  win_handle_sync_msg(wp, lp);
+	}
         /* if (!wp) { */
         /*   if (lp == WIN_MINIMIZE && cfg.geom_sync >= 3) */
         /*     ShowWindow(wnd, SW_MINIMIZE); */
@@ -5155,8 +5183,9 @@ main(int argc, char *argv[])
   if (pAddClipboardFormatListener) {
     pAddClipboardFormatListener(wnd);
   }
-
-  win_synctabs(4);
+  dont_post_sync_msg = false;
+  //win_synctabs(4);
+  win_init_position();
   update_tab_titles();
   if (cfg.show_tabbar) {
     win_open_tabbar();
