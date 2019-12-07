@@ -1,4 +1,15 @@
 Terminal features
+  * Linux console controls for underscore cursor size (mintty/wsltty#203).
+
+Window handling
+  * Avoid resize flickering loop in Virtual Tabs mode.
+
+Other
+  * Fix access to shortcut icon with path prefix %ProgramW6432%.
+
+### 3.1.0 (23 November 2019) ###
+
+Terminal features
   * Graphic image output support (iTerm2).
   * Fixed Sixel image management (#929).
   * Fixed premature discarding of partially scrolled-out image.
@@ -7,12 +18,19 @@ Terminal features
 Keyboard handling
   * Fixed AltGr handling for AutoHotKey (#932).
 
+Window handling
+  * Flush notification to handle auto-repeat click on scrollbar.
+
 Font rendering
-  * Meta-script name "CJK" for FontChoice (#928).
+  * Adjust row spacing ("Leading") for high DPI monitors (#777).
+  * Meta-script names "CJK" and "Private" for FontChoice (#928, #943, ~#754).
   * Adjusted default value CharNarrowing from 80 to 75 (#922).
 
 Other
   * Collect font warnings into one popup message.
+
+Configuration
+  * Bold handling configuration makes "xterm" fallback explicit (#939, #936, #468).
 
 ### 3.0.6 (6 October 2019) ###
 

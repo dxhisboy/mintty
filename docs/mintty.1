@@ -1125,6 +1125,9 @@ Another special name is \fBCJK\fP which comprises Han, Hangul,
 Katakana, Hiragana, Bopomofo, Kanbun, 
 Halfwidth and Fullwidth Forms (except Latin). A later more specific entry 
 will override an earlier one (see CJK example below).
+.br
+Finally, special name \fBPrivate\fP covers the Private Use ranges, which are 
+often used for additional icon symbols (e.g. by "Nerd Fonts" or "Powerline" fonts).
 
 .br
 Example:
@@ -1248,6 +1251,12 @@ This option is not fully independent.
 If both BoldAsColour and BoldAsFont are true, both display methods are combined where applicable.
 If both are false, xterm default behaviour is applied.
 See \fBBold Behaviour\fP for an overview.
+
+.TP
+\fBShow bold like xterm default\fP
+With this interactive option, you can choose xterm default boldening behaviour 
+by switching both bold as font and colour off. It can be switched off by 
+switching one of the other options on.
 
 .TP
 \fBBold substitution colour\fP (BoldColour=)
@@ -2052,6 +2061,8 @@ options, which means they can only be set in config files or using the
 \fBCustomize Options dialog\fP (OldOptions=)
 Listing comma-separated tags in this setting will disable extended or 
 enhanced parts of the Options dialog.
+.br
+\(en \fBbold\fP Disable "Show bold" section with "xterm" pseudo option.
 .br
 \(en \fBemoji\fP Disable emoji style section in "Text" panel.
 .br

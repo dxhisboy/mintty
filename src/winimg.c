@@ -270,8 +270,8 @@ winimg_new(imglist **ppimg, char * id, unsigned char * pixels, uint len,
   img->len = len;
   if (len) {  // image format, not sixel
     img->id = id ? strdup(id) : 0;
-    img->cell_width = cell_width;
-    img->cell_height = cell_height;
+    img->cwidth = cell_width;
+    img->cheight = cell_height;
 
 #if CYGWIN_VERSION_API_MINOR >= 74
     if (!pixelwidth || !pixelheight || preserveAR) {
@@ -524,12 +524,12 @@ draw_img(HDC dc, imglist * img)
 
     int coord_transformed = 0;
     XFORM old_xform;
-    if (img->cell_width != cell_width || img->cell_height != cell_height) {
+    if (img->cwidth != cell_width || img->cheight != cell_height) {
       coord_transformed = SetGraphicsMode(dc, GM_ADVANCED);
       if (coord_transformed && GetWorldTransform(dc, &old_xform)) {
         XFORM xform =
-          (XFORM){(float)cell_width / (float)img->cell_width, 0.0,
-                  0.0, (float)cell_height / (float)img->cell_height,
+          (XFORM){(float)cell_width / (float)img->cwidth, 0.0,
+                  0.0, (float)cell_height / (float)img->cheight,
                   left, top};
         coord_transformed = SetWorldTransform(dc, &xform);
         left = 0;
@@ -556,8 +556,8 @@ draw_img(HDC dc, imglist * img)
     gpcheck("brush create", s);
 
     // determine area size for padding
-    int awidth = img->width * img->cell_width;
-    int aheight = img->height * img->cell_height;
+    int awidth = img->width * img->cwidth;
+    int aheight = img->height * img->cheight;
     s = GdipFillRectangleI(gr, br, left + width, top, awidth - width, height);
     gpcheck("brush fill", s);
     s = GdipFillRectangleI(gr, br, left, top + height, awidth, aheight - height);
@@ -649,7 +649,8 @@ winimgs_paint(void)
         // if all cells are overwritten, flag for deletion
         bool disp_flag = false;
         for (int y = max(0, top); y < min(top + img->height, term.rows); ++y) {
-          int wide_factor = (term.displines[y]->lattr & LATTR_MODE) == LATTR_NORM ? 1: 2;
+          int wide_factor =
+            (term.displines[y]->lattr & LATTR_MODE) == LATTR_NORM ? 1 : 2;
           for (int x = left; x < min(left + img->width, term.cols); ++x) {
             termchar *dchar = &term.displines[y]->chars[x];
 
@@ -661,6 +662,7 @@ winimgs_paint(void)
             else if (img->imgi - dchar->attr.imgi >= 0)
               // need to keep newer image, as sync may take a while
               disp_flag = true;
+            // if cell is overlaid by selection or cursor, exclude
             if (dchar->attr.attr & (TATTR_RESULT | TATTR_CURRESULT | TATTR_MARKED | TATTR_CURMARKED))
               clip_flag = true;
             if (term.selected && !clip_flag) {
@@ -678,34 +680,77 @@ winimgs_paint(void)
           }
         }
 
-#ifndef fill_bg_gdiplus
-        // fill image area background (in case it's smaller or transparent);
-        // background image brush should be used if configured
-        colour bg = colours[term.rvideo ? FG_COLOUR_I : BG_COLOUR_I];
-        //bg = RGB(90, 150, 222);  // test background filling
-        HBRUSH br = CreateSolidBrush(bg);
-
-        // determine area for padding
+        // fill image area background (in case it's smaller or transparent)
+        // calculate area for padding
         int ytop = max(0, top) * cell_height + PADDING;
         int ybot = min(top + img->height, term.rows) * cell_height + PADDING;
         int xlft = left * cell_width + PADDING;
         int xrgt = min(left + img->width, term.cols) * cell_width + PADDING;
-        // determine image size for padding
-        int iwidth = img->pixelwidth * cell_width / img->cell_width;
-        int iheight = img->pixelheight * cell_height / img->cell_height;
-        FillRect(dc, &(RECT){xlft + iwidth, ytop, xrgt, ytop + iheight}, br);
-        FillRect(dc, &(RECT){xlft, ytop + iheight, xrgt, ybot}, br);
-
-        DeleteObject(br);
-#endif
+        if (img->len) {
+          // better background handling implemented below; this version 
+          // would expose artefacts if a transparent image is scrolled
+        }
+        else {
+          // determine image size for padding
+          int iwidth;
+          int iheight;
+          if (img->len) {
+            // image: actual picture size
+            iwidth = img->pixelwidth * cell_width / img->cwidth;
+            iheight = img->pixelheight * cell_height / img->cheight;
+          }
+          else {
+            // sixel: actual picture size
+            iwidth = img->cwidth * cell_width * img->width / img->pixelwidth;
+            iheight = img->cheight * cell_height * img->height / img->pixelheight;
+          }
+          int ibot = max(0, top * cell_height + iheight) + PADDING;
+          // fill either background image or colour
+          if (*cfg.background) {
+            fill_background(dc, &(RECT){xlft + iwidth, ytop, xrgt, ibot});
+            fill_background(dc, &(RECT){xlft, ibot, xrgt, ybot});
+          }
+          else {
+            colour bg = colours[term.rvideo ? FG_COLOUR_I : BG_COLOUR_I];
+            //bg = RGB(90, 150, 222);  // test background filling
+            HBRUSH br = CreateSolidBrush(bg);
+            FillRect(dc, &(RECT){xlft + iwidth, ytop, xrgt, ibot}, br);
+            FillRect(dc, &(RECT){xlft, ibot, xrgt, ybot}, br);
+            DeleteObject(br);
+          }
+          if (!img->len) {
+            // sixel needs this in addition
+            ExcludeClipRect(dc, xlft + iwidth, ytop, xrgt, ibot);
+            ExcludeClipRect(dc, xlft, ibot, xrgt, ybot);
+          }
+        }
 
         // now display, keep, or delete the image data
         if (disp_flag) {
 #ifdef debug_img_list
           printf("paint: display img\n");
 #endif
-          if (img->len)
-            draw_img(dc, img);
+          if (img->len) {
+            //draw_img(dc, img);
+            // underlay image with background;
+            // do it in a copy to avoid flickering
+            HDC hdc = CreateCompatibleDC(dc);
+            HBITMAP hbm = CreateCompatibleBitmap(dc, xrgt, ybot);
+            (void)SelectObject(hdc, hbm);
+            if (*cfg.background)
+              fill_background(hdc, &(RECT){0, 0, xrgt, ybot});
+            else {
+              colour bg = colours[term.rvideo ? FG_COLOUR_I : BG_COLOUR_I];
+              //bg = RGB(90, 150, 222);  // test background filling
+              HBRUSH br = CreateSolidBrush(bg);
+              FillRect(hdc, &(RECT){0, 0, xrgt, ybot}, br);
+            }
+            draw_img(hdc, img);
+            BitBlt(dc, xlft, ytop, xrgt - xlft, ybot - ytop,
+                       hdc, xlft, ytop, SRCCOPY);
+            DeleteObject(hbm);
+            DeleteDC(hdc);
+          }
           else
             StretchBlt(dc,
                        left * cell_width + PADDING, top * cell_height + PADDING,

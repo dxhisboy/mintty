@@ -969,8 +969,7 @@ contains(string s, int i)
       s++;
     int si = -1;
     int len;
-    sscanf(s, "%d%n", &si, &len);
-    if (len <= 0)
+    if (sscanf(s, "%d%n", &si, &len) <= 0)
       return false;
     s += len;
     if (si == i && (!*s || *s == ','))
@@ -2567,6 +2566,8 @@ do_csi(uchar c)
         term.cursor_blink_interval = arg1;
       term.cursor_invalid = true;
       term_schedule_cblink();
+    when CPAIR('?', 'c'):  /* Cursor size (Linux console) */
+      term.cursor_size = arg0;
     when CPAIR('"', 'q'):  /* DECSCA: select character protection attribute */
       switch (arg0) {
         when 0 or 2: term.curs.attr.attr &= ~ATTR_PROTECTED;
@@ -2902,6 +2903,8 @@ do_dcs(void)
         term.imgs.parser_state = NULL;
         return;
       }
+      img->cwidth = st->max_x;
+      img->cheight = st->max_y;
 
       fill_image_space(img);
 
@@ -3865,6 +3868,16 @@ term_do_write(const char *buf, uint len)
           term.curs.attr.attr &= ~FONTFAM_MASK;
           term.curs.attr.attr |= (cattrflags)gcode << ATTR_FONTFAM_SHIFT;
         }
+#ifdef draw_powerline_geometric_symbols
+#warning graphical results of this approach are unpleasant; not enabled
+        else if (wc >= 0xE0B0 && wc <= 0xE0BF && wc != 0xE0B5 && wc != 0xE0B7) {
+          // draw geometric full-cell Powerline symbols,
+          // to avoid artefacts at their borders (#943)
+          term.curs.attr.attr &= ~FONTFAM_MASK;
+          term.curs.attr.attr |= (cattrflags)13 << ATTR_FONTFAM_SHIFT;
+          term.curs.attr.attr |= (cattrflags)15 << ATTR_GRAPH_SHIFT;
+        }
+#endif
 
         write_ucschar(0, wc, width);
         term.curs.attr.attr = asav;
