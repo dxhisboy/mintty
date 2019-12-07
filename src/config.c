@@ -101,6 +101,7 @@ const config default_cfg = {
   .key_menu = "",	// VK_APPS
   .key_scrlock = "",	// VK_SCROLL
   .key_commands = W(""),
+  .key_cmd_override_app_cursor = false,
   // Mouse
   .copy_on_select = true,
   .copy_as_rtf = true,
@@ -344,6 +345,7 @@ options[] = {
   {"Break", OPT_STRING | OPT_LEGACY, offcfg(key_break)},
   {"Pause", OPT_STRING | OPT_LEGACY, offcfg(key_pause)},
   {"KeyFunctions", OPT_WSTRING | OPT_KEEPCR, offcfg(key_commands)},
+  {"KeyFuncOverrideAppCursor", OPT_BOOL, offcfg(key_cmd_override_app_cursor)},
 
   // Mouse
   {"CopyOnSelect", OPT_BOOL, offcfg(copy_on_select)},

@@ -2101,7 +2101,7 @@ win_key_down(WPARAM wp, LPARAM lp)
       bool editpad = !keypad && vktab[vki].unmod >= 2;
       if (vki >= 0 && !altgr
           && (mods || vktab[vki].unmod || extended)
-          && (!editpad || !term.app_cursor_keys)
+          && (!editpad || !term.app_cursor_keys || cfg.key_cmd_override_app_cursor)
           && (!keypad || !term.app_keypad)
          )
       {

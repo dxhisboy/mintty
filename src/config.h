@@ -100,6 +100,7 @@ typedef struct {
   string key_menu;	// VK_APPS
   string key_scrlock;	// VK_SCROLL
   wstring key_commands;
+  bool key_cmd_override_app_cursor;
   // Mouse
   bool copy_on_select;
   bool copy_as_rtf;
