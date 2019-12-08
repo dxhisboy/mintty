@@ -24,6 +24,35 @@ extern struct tabinfo {
 } * tabinfo;
 extern int ntabinfo;
 
+//old version keeps the first letter
+/* static int */
+/* fit_title(HDC dc, int tab_width, wchar_t *title_in, wchar_t *title_out, int olen) */
+/* { */
+/*   int title_len = wcslen(title_in); */
+/*   SIZE text_size; */
+/*   GetTextExtentPoint32W(dc, title_in, title_len, &text_size); */
+/*   int text_width = text_size.cx; */
+/*   if (text_width <= tab_width) { */
+/*     wcsncpy(title_out, title_in, olen); */
+/*     return title_len; */
+/*   } */
+/*   wcsncpy(title_out, L"\u2026\u2026", olen); */
+/*   title_out[0] = title_in[0]; */
+/*   GetTextExtentPoint32W(dc, title_out, 2, &text_size); */
+/*   text_width = text_size.cx; */
+/*   int i; */
+/*   for (i = title_len - 1; i > 1; i --) { */
+/*     int charw; */
+/*     GetCharWidth32W(dc, title_in[i], title_in[i], &charw); */
+/*     if (text_width + charw <= tab_width) */
+/*       text_width += charw; */
+/*     else */
+/*       break; */
+/*   } */
+/*   wcsncpy(title_out + 2, title_in + i + 1, olen - 2); */
+/*   return wcsnlen(title_out, olen); */
+/* } */
+
 static int
 fit_title(HDC dc, int tab_width, wchar_t *title_in, wchar_t *title_out, int olen)
 {
@@ -35,12 +64,12 @@ fit_title(HDC dc, int tab_width, wchar_t *title_in, wchar_t *title_out, int olen
     wcsncpy(title_out, title_in, olen);
     return title_len;
   }
-  wcsncpy(title_out, L"\u2026\u2026", olen);
-  title_out[0] = title_in[0];
-  GetTextExtentPoint32W(dc, title_out, 2, &text_size);
+  wcsncpy(title_out, L"\u2026", olen);
+  //title_out[0] = title_in[0];
+  GetTextExtentPoint32W(dc, title_out, 1, &text_size);
   text_width = text_size.cx;
   int i;
-  for (i = title_len - 1; i > 1; i --) {
+  for (i = title_len - 1; i > 0; i --) {
     int charw;
     GetCharWidth32W(dc, title_in[i], title_in[i], &charw);
     if (text_width + charw <= tab_width)
@@ -48,7 +77,7 @@ fit_title(HDC dc, int tab_width, wchar_t *title_in, wchar_t *title_out, int olen
     else
       break;
   }
-  wcsncpy(title_out + 2, title_in + i + 1, olen - 2);
+  wcsncpy(title_out + 1, title_in + i + 1, olen - 2);
   return wcsnlen(title_out, olen);
 }
 
@@ -66,7 +95,7 @@ tabbar_update()
   int tab_width = (win_width - 2 * tab_height) / ntabinfo;
   tab_width = min(tab_width, max_tab_width);
   tab_width = max(tab_width, min_tab_width);
-  printf("width: %d %d %d\n", win_width, tab_width, ntabinfo);
+  //printf("width: %d %d %d\n", win_width, tab_width, ntabinfo);
   SendMessage(tab_wnd, TCM_SETITEMSIZE, 0, tab_width | tab_height << 16);
   TCITEMW tie;
   tie.mask = TCIF_TEXT | TCIF_IMAGE | TCIF_PARAM;
@@ -78,7 +107,7 @@ tabbar_update()
   SendMessage(tab_wnd, TCM_DELETEALLITEMS, 0, 0);
   //bool fg_ismintty = false;
   for (int i = 0; i < ntabinfo; i ++) {
-    fit_title(tabdc, tab_width, tabinfo[i].title, title_fit, 256);
+    fit_title(tabdc, tab_width - 2 * cell_width, tabinfo[i].title, title_fit, 256);
     tie.lParam = (LPARAM)tabinfo[i].wnd;
     SendMessage(tab_wnd, TCM_INSERTITEMW, i, (LPARAM)&tie);
     if (tabinfo[i].wnd == wnd) {
@@ -119,20 +148,20 @@ tab_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR uid, DWORD_PTR data
 static LRESULT CALLBACK
 container_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
-  printf("%p %p %p %p\n", &hwnd, &msg, &wp, &lp);
+  //printf("%p %p %p %p\n", &hwnd, &msg, &wp, &lp);
 
   if (msg == WM_NOTIFY) {
     LPNMHDR lpnmhdr = (LPNMHDR)lp;
-    printf("notify %lld %d %d\n", lpnmhdr->idFrom, lpnmhdr->code, TCN_SELCHANGE);
+    //printf("notify %lld %d %d\n", lpnmhdr->idFrom, lpnmhdr->code, TCN_SELCHANGE);
     if (lpnmhdr->code == TCN_SELCHANGE) {
       int isel = SendMessage(tab_wnd, TCM_GETCURSEL, 0, 0);
       TCITEMW tie;
       tie.mask = TCIF_PARAM;
       SendMessage(tab_wnd, TCM_GETITEM, isel, (LPARAM)&tie);
-      printf("%p\n", (void*)tie.lParam);
+      //printf("%p\n", (void*)tie.lParam);
       RECT rect_me;
       GetWindowRect(wnd, &rect_me);
-      printf("%d %d %d %d\n", rect_me.left, rect_me.right, rect_me.top, rect_me.bottom);
+      //printf("%d %d %d %d\n", rect_me.left, rect_me.right, rect_me.top, rect_me.bottom);
       //ShowWindow((HWND)tie.lParam, SW_RESTORE);
       //ShowWindow((HWND)tie.lParam, SW_SHOW);
       //SetForegroundWindow((HWND)tie.lParam);
@@ -152,7 +181,7 @@ container_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     }
   }
   else if (msg == WM_CREATE) {
-    puts("create");
+    //puts("create");
     tab_wnd = CreateWindowExA(0, WC_TABCONTROL, "", WS_CHILD|TCS_FIXEDWIDTH|TCS_OWNERDRAWFIXED, 0, 0, 0, 0, hwnd, 0, inst, NULL);
     SetWindowSubclass(tab_wnd, tab_proc, 0, 0);
     tabbar_font = CreateFontW(cell_height * 4 / 5, cell_width * 4 / 5, 0, 0, FW_DONTCARE, false, false, false,
@@ -163,7 +192,7 @@ container_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
   }
   else if (msg == WM_SHOWWINDOW) {
     if (wp) {
-      printf("show %p\n", bar_wnd);
+      //printf("show %p\n", bar_wnd);
       ShowWindow(tab_wnd, SW_SHOW);
       tabbar_update();
     }
@@ -238,7 +267,7 @@ tabbar_destroy()
 static void
 win_toggle_tabbar(bool show)
 {
-  puts("toggle");
+  //puts("toggle");
   RECT cr;
   GetClientRect(wnd, &cr);
   int width = cr.right - cr.left;
@@ -257,7 +286,7 @@ win_toggle_tabbar(bool show)
   if (show) {
     show = show;
     TABBAR_HEIGHT = height + padding * 2;
-    printf("nweheight");
+    //printf("nweheight");
     SetWindowPos(bar_wnd, 0,
                  cr.left, 0,
                  width, height + padding * 2,

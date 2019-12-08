@@ -1,7 +1,11 @@
 #ifndef APPINFO_H
 #define APPINFO_H
 
+#ifdef NDEBUG
 #define APPNAME "mintty"
+#else
+#define APPNAME "mintty-debug"
+#endif
 #define WEBSITE "http://mintty.github.io/"
 
 #define MAJOR_VERSION  3
