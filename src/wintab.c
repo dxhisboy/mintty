@@ -3,7 +3,7 @@
 #include <windowsx.h>
 #include <stdio.h>
 #include <string.h>
-#include <dwmapi.h>
+
 int TABBAR_HEIGHT = 0;
 static int prev_height = 0;
 static HWND tab_wnd, bar_wnd;
