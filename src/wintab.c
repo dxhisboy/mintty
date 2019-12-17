@@ -1,7 +1,5 @@
 #include "winpriv.h"
 #include "Commctrl.h"
-//#include <uxtheme.h>
-//#include <vssym32.h>
 #include <windowsx.h>
 #include <stdio.h>
 #include <string.h>
@@ -15,9 +13,9 @@ static bool initialized = false;
 static const int max_tab_width = 300;
 static const int min_tab_width = 20;
 static int prev_tab_width = 0;
-
+static HBRUSH inactive_brush, active_brush;
 #define TABBARCLASS "Tabbar"
-
+#define TABSCALE(x) ((x) * 8 / 9)
 extern struct tabinfo {
   unsigned long tag;
   HWND wnd;
@@ -37,7 +35,7 @@ fit_title(HDC dc, int tab_width, wchar_t *title_in, wchar_t *title_out, int olen
     return title_len;
   }
   wcsncpy(title_out, L"\u2026", olen);
-  //title_out[0] = title_in[0];
+
   GetTextExtentPoint32W(dc, title_out, 1, &text_size);
   text_width = text_size.cx;
   int i;
@@ -65,7 +63,7 @@ tabbar_update()
   int tab_width = (win_width - 2 * tab_height) / ntabinfo;
   tab_width = min(tab_width, max_tab_width);
   tab_width = max(tab_width, min_tab_width);
-  //printf("width: %d %d %d\n", win_width, tab_width, ntabinfo);
+
   SendMessage(tab_wnd, TCM_SETITEMSIZE, 0, tab_width | tab_height << 16);
   TCITEMW tie;
   tie.mask = TCIF_TEXT | TCIF_IMAGE | TCIF_PARAM;
@@ -75,7 +73,7 @@ tabbar_update()
   SelectObject(tabdc, tabbar_font);
   tie.pszText = title_fit;
   SendMessage(tab_wnd, TCM_DELETEALLITEMS, 0, 0);
-  //bool fg_ismintty = false;
+
   for (int i = 0; i < ntabinfo; i ++) {
     fit_title(tabdc, tab_width - cell_width, tabinfo[i].title, title_fit, 256);
     tie.lParam = (LPARAM)tabinfo[i].wnd;
@@ -114,53 +112,52 @@ tab_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR uid, DWORD_PTR data
   return DefSubclassProc(hwnd, msg, wp, lp);
 }
 
-static bool
-is_color_dark(DWORD color){
-  //int a = ((color >> 24) & 0xff) + 1;
-  int r = color >> 16 & 0xff;
-  int g = color >> 8  & 0xff;
-  int b = color >> 0  & 0xff;
-  /* r = r * a >> 8; */
-  /* g = g * a >> 8; */
-  /* b = b * a >> 8; */
-  //a = a * a >> 8;
-  return (r * 2 + g * 5 + b) <= 1024;
-}
+/* static bool */
+/* is_color_dark(DWORD color){ */
+/*   //int a = ((color >> 24) & 0xff) + 1; */
+/*   int r = color >> 16 & 0xff; */
+/*   int g = color >> 8  & 0xff; */
+/*   int b = color >> 0  & 0xff; */
+/*   /\* r = r * a >> 8; *\/ */
+/*   /\* g = g * a >> 8; *\/ */
+/*   /\* b = b * a >> 8; *\/ */
+/*   //a = a * a >> 8; */
+/*   return (r * 2 + g * 5 + b) <= 1024; */
+/* } */
 
-static DWORD
-argb_to_bgr(DWORD color){
-  //int a = ((color >> 24) & 0xff) + 1;
-  int r = color >> 16 & 0xff;
-  int g = color >> 8  & 0xff;
-  int b = color >> 0  & 0xff;
-  /* r = r * a >> 8; */
-  /* g = g * a >> 8; */
-  /* b = b * a >> 8; */
-  return b << 16 | g << 8 | r;
-}
-static bool
-get_color_conf(int *activebg, int *activetext, int *inactivebg, int *inactivetext){
-  DWORD dwmcolor;
-  WINBOOL dwmopaque;
-  if (!DwmGetColorizationColor(&dwmcolor, &dwmopaque)) {
-    *activebg = argb_to_bgr(dwmcolor);
-    *activetext = is_color_dark(dwmcolor) ? 0xffffff : 0x0;
-    *inactivebg = 0xffffff;
-    *inactivetext = 0xaaaaaa;
-    return true;
-  } else {
-    *activebg = GetSysColor(COLOR_ACTIVECAPTION);
-    *activetext = GetSysColor(COLOR_CAPTIONTEXT);
-    *inactivebg = GetSysColor(COLOR_INACTIVECAPTION);
-    *inactivetext = GetSysColor(COLOR_INACTIVECAPTIONTEXT);
-    return false;
-  }
-}
+/* static DWORD */
+/* argb_to_bgr(DWORD color){ */
+/*   //int a = ((color >> 24) & 0xff) + 1; */
+/*   int r = color >> 16 & 0xff; */
+/*   int g = color >> 8  & 0xff; */
+/*   int b = color >> 0  & 0xff; */
+/*   /\* r = r * a >> 8; *\/ */
+/*   /\* g = g * a >> 8; *\/ */
+/*   /\* b = b * a >> 8; *\/ */
+/*   return b << 16 | g << 8 | r; */
+/* } */
+/* static bool */
+/* get_color_conf(int *activebg, int *activetext, int *inactivebg, int *inactivetext){ */
+/*   DWORD dwmcolor; */
+/*   WINBOOL dwmopaque; */
+/*   if (!DwmGetColorizationColor(&dwmcolor, &dwmopaque)) { */
+/*     *activebg = argb_to_bgr(dwmcolor); */
+/*     *activetext = is_color_dark(dwmcolor) ? 0xffffff : 0x0; */
+/*     *inactivebg = 0xffffff; */
+/*     *inactivetext = 0xaaaaaa; */
+/*     return true; */
+/*   } else { */
+/*     *activebg = GetSysColor(COLOR_ACTIVECAPTION); */
+/*     *activetext = GetSysColor(COLOR_CAPTIONTEXT); */
+/*     *inactivebg = GetSysColor(COLOR_INACTIVECAPTION); */
+/*     *inactivetext = GetSysColor(COLOR_INACTIVECAPTIONTEXT); */
+/*     return false; */
+/*   } */
+/* } */
 // We need to make a container for the tabbar for handling WM_NOTIFY, also for further extensions
 static LRESULT CALLBACK
 container_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
-
   if (msg == WM_NOTIFY) {
     LPNMHDR lpnmhdr = (LPNMHDR)lp;
     if (lpnmhdr->code == TCN_SELCHANGE) {
@@ -184,22 +181,24 @@ container_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
   else if (msg == WM_CREATE) {
     tab_wnd = CreateWindowExA(0, WC_TABCONTROL, "", WS_CHILD|TCS_FIXEDWIDTH|TCS_OWNERDRAWFIXED, 0, 0, 0, 0, hwnd, 0, inst, NULL);
     SetWindowSubclass(tab_wnd, tab_proc, 0, 0);
-    tabbar_font = CreateFontW(cell_height * 4 / 5, cell_width * 4 / 5, 0, 0, FW_DONTCARE, false, false, false,
+    tabbar_font = CreateFontW(TABSCALE(cell_height), TABSCALE(cell_width), 0, 0, FW_DONTCARE, false, false, false,
                               DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                               DEFAULT_QUALITY, FIXED_PITCH | FF_DONTCARE,
                               cfg.font.name);
     SendMessage(tab_wnd, WM_SETFONT, (WPARAM)tabbar_font, 1);
+    colour active_colour = win_get_sys_colour(COLOR_GRADIENTACTIVECAPTION);
+    colour inactive_colour = win_get_sys_colour(COLOR_GRADIENTINACTIVECAPTION);
+    active_brush = CreateSolidBrush(active_colour);
+    inactive_brush = CreateSolidBrush(inactive_colour);
   }
   else if (msg == WM_SHOWWINDOW) {
     if (wp) {
-      //printf("show %p\n", bar_wnd);
       ShowWindow(tab_wnd, SW_SHOW);
       tabbar_update();
     }
-    //return true;
   }
   else if (msg == WM_SIZE) {
-    tabbar_font = CreateFontW(cell_height * 4 / 5, cell_width * 4 / 5, 0, 0, FW_DONTCARE, false, false, false,
+    tabbar_font = CreateFontW(TABSCALE(cell_height), TABSCALE(cell_width), 0, 0, FW_DONTCARE, false, false, false,
                               DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                               DEFAULT_QUALITY, FIXED_PITCH | FF_DONTCARE,
                               cfg.font.name);
@@ -210,14 +209,11 @@ container_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
                  lp & 0xffff, TABBAR_HEIGHT, //lp >> 16,
                  SWP_NOZORDER);
     tabbar_update();
-  } else if (msg == WM_DRAWITEM) {
-    int a_bg, a_text, i_bg, i_text;
-    get_color_conf(&a_bg, &a_text, &i_bg, &i_text);
-    
+  }
+  else if (msg == WM_DRAWITEM) {
     LPDRAWITEMSTRUCT dis = (LPDRAWITEMSTRUCT)lp;
     HDC hdc = dis->hDC;
 
-    //printf("Container Received drawitem %llx %p\n", wp, dis);
     int hcenter = (dis->rcItem.left + dis->rcItem.right) / 2;
     int vcenter = (dis->rcItem.top + dis->rcItem.bottom) / 2;
 
@@ -231,17 +227,15 @@ container_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     SendMessage(tab_wnd, TCM_GETITEMW, dis->itemID, (LPARAM)&tie);
     HBRUSH bgbrush;
     if (tabinfo[dis->itemID].wnd == wnd){
-      SetTextColor(hdc, a_text);//GetSysColor(COLOR_CAPTIONTEXT));
-      bgbrush = CreateSolidBrush(a_bg);
-      //FillRect(hdc, &dis->rcItem, GetSysColorBrush(COLOR_ACTIVECAPTION));
+      SetTextColor(hdc, win_get_sys_colour(COLOR_CAPTIONTEXT));
+      bgbrush = active_brush;
     } else {
-      SetTextColor(hdc, i_text);
-      bgbrush = CreateSolidBrush(i_bg);
+      SetTextColor(hdc, win_get_sys_colour(COLOR_INACTIVECAPTIONTEXT));
+      bgbrush = inactive_brush;
     }
     FillRect(hdc, &dis->rcItem, bgbrush);
     SetBkMode(hdc, TRANSPARENT);
     TextOutW(hdc, hcenter, vcenter - cell_height / 3, tie.pszText, wcslen(tie.pszText));
-    DeleteObject(bgbrush);
   }
 
   return CallWindowProc(DefWindowProc, hwnd, msg, wp, lp);
@@ -262,7 +256,6 @@ tabbar_init()
                                 .lpszMenuName = NULL,
                                 .lpszClassName = TABBARCLASS
                                 });
-  //bar_wnd = CreateWindowExA(WS_EX_STATICEDGE, TABBARCLASS, "", WS_CHILD|WS_BORDER, 0, 0, 0, 0, wnd, 0, inst, NULL);
   bar_wnd = CreateWindowExA(0, TABBARCLASS, "", WS_CHILD, 0, 0, 0, 0, wnd, 0, inst, NULL);
   initialized = true;
 }
@@ -278,7 +271,6 @@ tabbar_destroy()
 static void
 win_toggle_tabbar(bool show)
 {
-  //puts("toggle");
   RECT cr;
   GetClientRect(wnd, &cr);
   int width = cr.right - cr.left;
