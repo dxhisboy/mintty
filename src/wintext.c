@@ -2685,7 +2685,7 @@ win_text(int tx, int ty, wchar *text, int len, cattr attr, cattr *textattr, usho
 
  /* Convert to window coordinates */
   int x = tx * char_width + PADDING;
-  int y = ty * cell_height + PADDING + TABBAR_HEIGHT;
+  int y = ty * cell_height + max(PADDING, TABBAR_HEIGHT);
 
   if (attr.attr & ATTR_WIDE)
     char_width *= 2;
@@ -4541,7 +4541,7 @@ win_paint(void)
 
     ExcludeClipRect(dc, PADDING, PADDING,
                     PADDING + cell_width * term.cols,
-                    PADDING + cell_height * term.rows + TABBAR_HEIGHT);
+                    cell_height * term.rows + max(PADDING, TABBAR_HEIGHT));
 
     Rectangle(dc, p.rcPaint.left, p.rcPaint.top,
                   p.rcPaint.right, p.rcPaint.bottom);

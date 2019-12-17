@@ -24,35 +24,6 @@ extern struct tabinfo {
 } * tabinfo;
 extern int ntabinfo;
 
-//old version keeps the first letter
-/* static int */
-/* fit_title(HDC dc, int tab_width, wchar_t *title_in, wchar_t *title_out, int olen) */
-/* { */
-/*   int title_len = wcslen(title_in); */
-/*   SIZE text_size; */
-/*   GetTextExtentPoint32W(dc, title_in, title_len, &text_size); */
-/*   int text_width = text_size.cx; */
-/*   if (text_width <= tab_width) { */
-/*     wcsncpy(title_out, title_in, olen); */
-/*     return title_len; */
-/*   } */
-/*   wcsncpy(title_out, L"\u2026\u2026", olen); */
-/*   title_out[0] = title_in[0]; */
-/*   GetTextExtentPoint32W(dc, title_out, 2, &text_size); */
-/*   text_width = text_size.cx; */
-/*   int i; */
-/*   for (i = title_len - 1; i > 1; i --) { */
-/*     int charw; */
-/*     GetCharWidth32W(dc, title_in[i], title_in[i], &charw); */
-/*     if (text_width + charw <= tab_width) */
-/*       text_width += charw; */
-/*     else */
-/*       break; */
-/*   } */
-/*   wcsncpy(title_out + 2, title_in + i + 1, olen - 2); */
-/*   return wcsnlen(title_out, olen); */
-/* } */
-
 static int
 fit_title(HDC dc, int tab_width, wchar_t *title_in, wchar_t *title_out, int olen)
 {
@@ -88,9 +59,7 @@ tabbar_update()
   GetClientRect(tab_wnd, &tab_cr);
   int win_width = tab_cr.right - tab_cr.left;
   if (ntabinfo == 0) return;
-  /* { */
-  /*   SendMessage(wnd, WM_USER, 0, 4); */
-  /* } */
+
   int tab_height = cell_height + (cell_width / 6 + 1) * 2;
   int tab_width = (win_width - 2 * tab_height) / ntabinfo;
   tab_width = min(tab_width, max_tab_width);
@@ -148,32 +117,21 @@ tab_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR uid, DWORD_PTR data
 static LRESULT CALLBACK
 container_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
-  //printf("%p %p %p %p\n", &hwnd, &msg, &wp, &lp);
 
   if (msg == WM_NOTIFY) {
     LPNMHDR lpnmhdr = (LPNMHDR)lp;
-    //printf("notify %lld %d %d\n", lpnmhdr->idFrom, lpnmhdr->code, TCN_SELCHANGE);
     if (lpnmhdr->code == TCN_SELCHANGE) {
       int isel = SendMessage(tab_wnd, TCM_GETCURSEL, 0, 0);
       TCITEMW tie;
       tie.mask = TCIF_PARAM;
       SendMessage(tab_wnd, TCM_GETITEM, isel, (LPARAM)&tie);
-      //printf("%p\n", (void*)tie.lParam);
       RECT rect_me;
       GetWindowRect(wnd, &rect_me);
-      //printf("%d %d %d %d\n", rect_me.left, rect_me.right, rect_me.top, rect_me.bottom);
-      //ShowWindow((HWND)tie.lParam, SW_RESTORE);
-      //ShowWindow((HWND)tie.lParam, SW_SHOW);
-      //SetForegroundWindow((HWND)tie.lParam);
-  // SetActiveWindow(top_wnd);
 
-      //if (IsIconic((HWND)tie.lParam))
-      //ShowWindow((HWND)tie.lParam, SW_RESTORE);
+      //Switch desired tab to the top
       win_to_top((HWND)tie.lParam);
       win_post_sync_message((HWND)tie.lParam);
-      //SetForegroundWindow((HWND)tie.lParam);
-      /* SetWindowPos((HWND)tie.lParam, 0, rect_me.left, rect_me.top, rect_me.right - rect_me.left, rect_me.bottom - rect_me.top, SWP_SHOWWINDOW); */
-      //PostMessage((HWND)tie.lParam, WM_SIZE, 0, 0);
+
       for (int i = 0; i < ntabinfo; i ++) {
         if (tabinfo[i].wnd == wnd)
           SendMessage(tab_wnd, TCM_SETCURSEL, i, 0);
@@ -181,7 +139,6 @@ container_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     }
   }
   else if (msg == WM_CREATE) {
-    //puts("create");
     tab_wnd = CreateWindowExA(0, WC_TABCONTROL, "", WS_CHILD|TCS_FIXEDWIDTH|TCS_OWNERDRAWFIXED, 0, 0, 0, 0, hwnd, 0, inst, NULL);
     SetWindowSubclass(tab_wnd, tab_proc, 0, 0);
     tabbar_font = CreateFontW(cell_height * 4 / 5, cell_width * 4 / 5, 0, 0, FW_DONTCARE, false, false, false,
@@ -207,13 +164,14 @@ container_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 
     SetWindowPos(tab_wnd, 0,
                  0, 0,
-                 lp & 0xffff, lp >> 16,
+                 lp & 0xffff, TABBAR_HEIGHT, //lp >> 16,
                  SWP_NOZORDER);
     tabbar_update();
   } else if (msg == WM_DRAWITEM) {
     LPDRAWITEMSTRUCT dis = (LPDRAWITEMSTRUCT)lp;
     HDC hdc = dis->hDC;
-    printf("Container Received drawitem %llx %p\n", wp, dis);
+
+    //printf("Container Received drawitem %llx %p\n", wp, dis);
     int hcenter = (dis->rcItem.left + dis->rcItem.right) / 2;
     int vcenter = (dis->rcItem.top + dis->rcItem.bottom) / 2;
 
@@ -247,12 +205,12 @@ tabbar_init()
                                 .hInstance = inst,
                                 .hIcon = NULL,
                                 .hCursor = NULL,
-                                .hbrBackground = NULL, //(HBRUSH)(COLOR_3DFACE + 1),
+                                .hbrBackground = (HBRUSH)(COLOR_BACKGROUND),
                                 .lpszMenuName = NULL,
                                 .lpszClassName = TABBARCLASS
                                 });
-  bar_wnd = CreateWindowExA(WS_EX_STATICEDGE, TABBARCLASS, "", WS_CHILD|WS_BORDER, 0, 0, 0, 0, wnd, 0, inst, NULL);
-
+  //bar_wnd = CreateWindowExA(WS_EX_STATICEDGE, TABBARCLASS, "", WS_CHILD|WS_BORDER, 0, 0, 0, 0, wnd, 0, inst, NULL);
+  bar_wnd = CreateWindowExA(0, TABBARCLASS, "", WS_CHILD, 0, 0, 0, 0, wnd, 0, inst, NULL);
   initialized = true;
 }
 
@@ -315,6 +273,7 @@ win_update_tabbar()
 void
 win_open_tabbar()
 {
+  //4 is actually WIN_TITLE
   SendMessage(wnd, WM_USER, 0, 4);
   win_toggle_tabbar(true);
   win_adapt_term_size(false, false);
