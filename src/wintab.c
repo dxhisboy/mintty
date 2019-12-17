@@ -5,6 +5,7 @@
 #include <windowsx.h>
 #include <stdio.h>
 #include <string.h>
+#include <dwmapi.h>
 int TABBAR_HEIGHT = 0;
 static int prev_height = 0;
 static HWND tab_wnd, bar_wnd;
@@ -76,7 +77,7 @@ tabbar_update()
   SendMessage(tab_wnd, TCM_DELETEALLITEMS, 0, 0);
   //bool fg_ismintty = false;
   for (int i = 0; i < ntabinfo; i ++) {
-    fit_title(tabdc, tab_width - 2 * cell_width, tabinfo[i].title, title_fit, 256);
+    fit_title(tabdc, tab_width - cell_width, tabinfo[i].title, title_fit, 256);
     tie.lParam = (LPARAM)tabinfo[i].wnd;
     SendMessage(tab_wnd, TCM_INSERTITEMW, i, (LPARAM)&tie);
     if (tabinfo[i].wnd == wnd) {
@@ -113,6 +114,48 @@ tab_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR uid, DWORD_PTR data
   return DefSubclassProc(hwnd, msg, wp, lp);
 }
 
+static bool
+is_color_dark(DWORD color){
+  //int a = ((color >> 24) & 0xff) + 1;
+  int r = color >> 16 & 0xff;
+  int g = color >> 8  & 0xff;
+  int b = color >> 0  & 0xff;
+  /* r = r * a >> 8; */
+  /* g = g * a >> 8; */
+  /* b = b * a >> 8; */
+  //a = a * a >> 8;
+  return (r * 2 + g * 5 + b) <= 1024;
+}
+
+static DWORD
+argb_to_bgr(DWORD color){
+  //int a = ((color >> 24) & 0xff) + 1;
+  int r = color >> 16 & 0xff;
+  int g = color >> 8  & 0xff;
+  int b = color >> 0  & 0xff;
+  /* r = r * a >> 8; */
+  /* g = g * a >> 8; */
+  /* b = b * a >> 8; */
+  return b << 16 | g << 8 | r;
+}
+static bool
+get_color_conf(int *activebg, int *activetext, int *inactivebg, int *inactivetext){
+  DWORD dwmcolor;
+  WINBOOL dwmopaque;
+  if (!DwmGetColorizationColor(&dwmcolor, &dwmopaque)) {
+    *activebg = argb_to_bgr(dwmcolor);
+    *activetext = is_color_dark(dwmcolor) ? 0xffffff : 0x0;
+    *inactivebg = 0xffffff;
+    *inactivetext = 0xaaaaaa;
+    return true;
+  } else {
+    *activebg = GetSysColor(COLOR_ACTIVECAPTION);
+    *activetext = GetSysColor(COLOR_CAPTIONTEXT);
+    *inactivebg = GetSysColor(COLOR_INACTIVECAPTION);
+    *inactivetext = GetSysColor(COLOR_INACTIVECAPTIONTEXT);
+    return false;
+  }
+}
 // We need to make a container for the tabbar for handling WM_NOTIFY, also for further extensions
 static LRESULT CALLBACK
 container_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
@@ -168,6 +211,9 @@ container_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
                  SWP_NOZORDER);
     tabbar_update();
   } else if (msg == WM_DRAWITEM) {
+    int a_bg, a_text, i_bg, i_text;
+    get_color_conf(&a_bg, &a_text, &i_bg, &i_text);
+    
     LPDRAWITEMSTRUCT dis = (LPDRAWITEMSTRUCT)lp;
     HDC hdc = dis->hDC;
 
@@ -176,19 +222,26 @@ container_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     int vcenter = (dis->rcItem.top + dis->rcItem.bottom) / 2;
 
     SetTextAlign(hdc, TA_CENTER|TA_TOP);
+
     TCITEMW tie;
     wchar_t buf[256];
     tie.mask = TCIF_TEXT;
     tie.pszText = buf;
     tie.cchTextMax = 256;
     SendMessage(tab_wnd, TCM_GETITEMW, dis->itemID, (LPARAM)&tie);
+    HBRUSH bgbrush;
     if (tabinfo[dis->itemID].wnd == wnd){
-      FillRect(hdc, &dis->rcItem, GetSysColorBrush(COLOR_GRADIENTACTIVECAPTION));
+      SetTextColor(hdc, a_text);//GetSysColor(COLOR_CAPTIONTEXT));
+      bgbrush = CreateSolidBrush(a_bg);
+      //FillRect(hdc, &dis->rcItem, GetSysColorBrush(COLOR_ACTIVECAPTION));
     } else {
-      FillRect(hdc, &dis->rcItem, GetSysColorBrush(COLOR_3DFACE));
+      SetTextColor(hdc, i_text);
+      bgbrush = CreateSolidBrush(i_bg);
     }
+    FillRect(hdc, &dis->rcItem, bgbrush);
     SetBkMode(hdc, TRANSPARENT);
     TextOutW(hdc, hcenter, vcenter - cell_height / 3, tie.pszText, wcslen(tie.pszText));
+    DeleteObject(bgbrush);
   }
 
   return CallWindowProc(DefWindowProc, hwnd, msg, wp, lp);
