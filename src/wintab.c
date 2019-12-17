@@ -186,8 +186,8 @@ container_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
                               DEFAULT_QUALITY, FIXED_PITCH | FF_DONTCARE,
                               cfg.font.name);
     SendMessage(tab_wnd, WM_SETFONT, (WPARAM)tabbar_font, 1);
-    colour active_colour = win_get_sys_colour(COLOR_GRADIENTACTIVECAPTION);
-    colour inactive_colour = win_get_sys_colour(COLOR_GRADIENTINACTIVECAPTION);
+    colour active_colour = win_get_sys_colour(COLOR_ACTIVECAPTION);
+    colour inactive_colour = win_get_sys_colour(COLOR_INACTIVECAPTION);
     active_brush = CreateSolidBrush(active_colour);
     inactive_brush = CreateSolidBrush(inactive_colour);
   }

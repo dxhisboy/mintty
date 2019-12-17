@@ -189,6 +189,7 @@ static HRESULT (WINAPI * pDwmIsCompositionEnabled)(BOOL *) = 0;
 static HRESULT (WINAPI * pDwmExtendFrameIntoClientArea)(HWND, const MARGINS *) = 0;
 static HRESULT (WINAPI * pDwmEnableBlurBehindWindow)(HWND, void *) = 0;
 static HRESULT (WINAPI * pDwmSetWindowAttribute)(HWND, DWORD, LPCVOID, DWORD) = 0;
+static HRESULT (WINAPI * pDwmGetColorizationColor)(DWORD *, BOOL *) = 0;
 
 static HRESULT (WINAPI * pSetWindowCompositionAttribute)(HWND, void *) = 0;
 static BOOL (WINAPI * pSystemParametersInfo)(UINT, UINT, PVOID, UINT) = 0;
@@ -233,6 +234,8 @@ load_dwm_funcs(void)
       (void *)GetProcAddress(dwm, "DwmEnableBlurBehindWindow");
     pDwmSetWindowAttribute =
       (void *)GetProcAddress(dwm, "DwmSetWindowAttribute");
+    pDwmGetColorizationColor =
+      (void *)GetProcAddress(dwm, "DwmGetColorizationColor");
   }
   if (user32) {
     pSetWindowCompositionAttribute =
@@ -608,9 +611,52 @@ win_sys_style(bool focus)
 #endif
 }
 
+static colour
+argb_to_bgr(DWORD color){
+  int r = color >> 16 & 0xff;
+  int g = color >> 8  & 0xff;
+  int b = color >> 0  & 0xff;
+  return b << 16 | g << 8 | r;
+}
+
+static bool
+is_colour_dark_argb(DWORD color){
+  int r = color >> 16 & 0xff;
+  int g = color >> 8  & 0xff;
+  int b = color >> 0  & 0xff;
+  return (r * 2 + g * 5 + b) <= 1024;
+}
+
 colour
 win_get_sys_colour(int colid)
 {
+  if (pDwmIsCompositionEnabled) {
+    if (colid == COLOR_ACTIVECAPTION || colid == COLOR_INACTIVECAPTION ||
+        colid == COLOR_CAPTIONTEXT || colid == COLOR_INACTIVECAPTIONTEXT ||
+        colid == COLOR_GRADIENTACTIVECAPTION || colid == COLOR_GRADIENTINACTIVECAPTION) {
+      BOOL is_dwm_on = false;
+      pDwmIsCompositionEnabled(&is_dwm_on);
+      if (is_dwm_on) {
+        DWORD dwm_colour;
+        //Ignores opaque temporary, I can't render a transparent tab now.
+        BOOL dwm_opaque;
+        HRESULT ok = pDwmGetColorizationColor(&dwm_colour, &dwm_opaque);
+        if (ok == S_OK) {
+          switch (colid) {
+            when COLOR_ACTIVECAPTION or COLOR_GRADIENTACTIVECAPTION:
+              return argb_to_bgr(dwm_colour);
+            when COLOR_CAPTIONTEXT:
+              return is_colour_dark_argb(dwm_colour) ? 0xffffff : 0x000000;
+
+            when COLOR_INACTIVECAPTION or COLOR_GRADIENTINACTIVECAPTION:
+              return 0xffffff;
+            when COLOR_INACTIVECAPTIONTEXT:
+              return 0xaaaaaa;
+          }
+        }
+      }
+    }
+  }
   if (pGetThemeSysColor) {
     HTHEME hth = pOpenThemeData(wnd, L"TAB;HEADER;WINDOW");
     if (hth) {
